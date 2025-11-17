@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum MonitorStatus {
+  HEALTHY
+  LATE
+  FAILED
+}
+
+enum AlertType {
+  DOWN
+  RECOVERY
+}
+
+enum AlertChannel {
+  EMAIL
+  SLACK
+  SMS
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  passwordHash          String
+  plan                  Plan      @default(FREE)
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  monitors              Monitor[]
+}
+
+model Monitor {
+  id                    String        @id @default(cuid())
+  userId                String
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                  String
+  pingUrl               String        @unique @default(cuid())
+  intervalSeconds       Int           @default(3600) // 1 hour default
+  gracePeriodSeconds    Int           @default(300)  // 5 min grace period
+  status                MonitorStatus @default(HEALTHY)
+  lastPingAt            DateTime?
+  nextExpectedPingAt    DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  pings                 Ping[]
+  alerts                Alert[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([nextExpectedPingAt])
+}
+
+model Ping {
+  id          String   @id @default(cuid())
+  monitorId   String
+  monitor     Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  pingedAt    DateTime @default(now())
+  message     String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([monitorId])
+  @@index([pingedAt])
+}
+
+model Alert {
+  id          String       @id @default(cuid())
+  monitorId   String
+  monitor     Monitor      @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  type        AlertType
+  channel     AlertChannel
+  sentAt      DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+
+  @@index([monitorId])
+  @@index([sentAt])
+}
