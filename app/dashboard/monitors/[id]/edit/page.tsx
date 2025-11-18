@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { use } from 'react'
 
 const INTERVAL_PRESETS = [
   { label: '1 minute', seconds: 60 },
@@ -27,7 +28,12 @@ const GRACE_PERIOD_PRESETS = [
   { label: '1 hour', seconds: 3600 },
 ]
 
-export default function NewMonitorPage() {
+interface EditMonitorPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function EditMonitorPage({ params }: EditMonitorPageProps) {
+  const { id } = use(params)
   const router = useRouter()
   const [name, setName] = useState('')
   const [intervalSeconds, setIntervalSeconds] = useState(3600)
@@ -36,16 +42,40 @@ export default function NewMonitorPage() {
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState('')
   const [alertEmails, setAlertEmails] = useState('')
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    // Fetch current monitor data
+    fetch(`/api/monitors/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError('Failed to load monitor')
+        } else {
+          setName(data.monitor.name)
+          setIntervalSeconds(data.monitor.intervalSeconds)
+          setGracePeriodSeconds(data.monitor.gracePeriodSeconds)
+          setSlackWebhookUrl(data.monitor.slackWebhookUrl || '')
+          setDiscordWebhookUrl(data.monitor.discordWebhookUrl || '')
+          setAlertEmails(data.monitor.alertEmails || '')
+        }
+        setIsLoading(false)
+      })
+      .catch(() => {
+        setError('Failed to load monitor')
+        setIsLoading(false)
+      })
+  }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setIsLoading(true)
+    setIsSaving(true)
 
     try {
-      const res = await fetch('/api/monitors', {
-        method: 'POST',
+      const res = await fetch(`/api/monitors/${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
@@ -60,36 +90,46 @@ export default function NewMonitorPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Failed to create monitor')
-        setIsLoading(false)
+        setError(data.error || 'Failed to update monitor')
+        setIsSaving(false)
         return
       }
 
-      router.push(`/dashboard/monitors/${data.monitor.id}`)
+      router.push(`/dashboard/monitors/${id}`)
       router.refresh()
     } catch (err) {
       setError('An error occurred. Please try again.')
-      setIsLoading(false)
+      setIsSaving(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <div className="text-center text-zinc-600 dark:text-zinc-400">
+          Loading...
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <Link href="/dashboard/monitors" className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
-          ← Back to Monitors
+        <Link href={`/dashboard/monitors/${id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+          ← Back to Monitor
         </Link>
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-white mt-4">
-          Create Monitor
+          Edit Monitor
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-          Set up a new cron job monitor
+          Update your monitor settings
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Monitor Details</CardTitle>
+          <CardTitle>Monitor Settings</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -105,7 +145,7 @@ export default function NewMonitorPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              helperText="A descriptive name for your cron job"
+              helperText="A descriptive name for your task"
             />
 
             <div>
@@ -113,7 +153,7 @@ export default function NewMonitorPage() {
                 Expected Interval
               </label>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
-                How often should this job run?
+                How often should this task run?
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {INTERVAL_PRESETS.map((preset) => (
@@ -140,7 +180,7 @@ export default function NewMonitorPage() {
                 Grace Period
               </label>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
-                How long to wait before sending an alert if the job is late?
+                How long to wait before sending an alert if the task is late?
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 {GRACE_PERIOD_PRESETS.map((preset) => (
@@ -198,10 +238,10 @@ export default function NewMonitorPage() {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" isLoading={isLoading}>
-                Create Monitor
+              <Button type="submit" isLoading={isSaving}>
+                Save Changes
               </Button>
-              <Link href="/dashboard/monitors">
+              <Link href={`/dashboard/monitors/${id}`}>
                 <Button type="button" variant="outline">
                   Cancel
                 </Button>

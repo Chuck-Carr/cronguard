@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, intervalSeconds, gracePeriodSeconds } = body
+    const { name, intervalSeconds, gracePeriodSeconds, slackWebhookUrl, discordWebhookUrl, alertEmails } = body
 
     if (!name || !intervalSeconds) {
       return NextResponse.json(
@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
         name,
         intervalSeconds,
         gracePeriodSeconds: gracePeriodSeconds || 300,
+        slackWebhookUrl: slackWebhookUrl || null,
+        discordWebhookUrl: discordWebhookUrl || null,
+        alertEmails: alertEmails || null,
       },
     })
 

@@ -57,6 +57,9 @@ model Monitor {
   status                MonitorStatus @default(HEALTHY)
   lastPingAt            DateTime?
   nextExpectedPingAt    DateTime?
+  slackWebhookUrl       String?       // Slack webhook URL
+  discordWebhookUrl     String?       // Discord webhook URL
+  alertEmails           String?       // Comma-separated additional email addresses
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   pings                 Ping[]

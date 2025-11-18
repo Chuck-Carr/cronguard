@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sendEmailAlert, sendDiscordWebhook, sendSlackWebhook } from "@/lib/notifications"
+import { getPlanLimits } from "@/lib/plan-limits"
 
 // This endpoint should be called every minute via Vercel Cron or similar
 export async function GET(req: NextRequest) {
@@ -45,25 +47,22 @@ export async function GET(req: NextRequest) {
       if (now >= gracePeriodEnd) {
         // Grace period expired - mark as FAILED and send alert
         if (monitor.status !== "FAILED") {
+          await prisma.monitor.update({
+            where: { id: monitor.id },
+            data: { status: "FAILED" },
+          })
+
+          // Send alerts (email + webhooks if enabled)
+          const sent = await sendAllAlerts(monitor, "DOWN")
+
+          // Record alert rows for channels we actually sent
           await prisma.$transaction([
-            prisma.monitor.update({
-              where: { id: monitor.id },
-              data: { status: "FAILED" },
-            }),
-            prisma.alert.create({
-              data: {
-                monitorId: monitor.id,
-                type: "DOWN",
-                channel: "EMAIL",
-              },
-            }),
+            ...(sent.email ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "DOWN", channel: "EMAIL" } })] : []),
+            ...(sent.slack ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "DOWN", channel: "SLACK" } })] : []),
           ])
 
-          // TODO: Send email alert
-          await sendAlert(monitor, "DOWN")
-          
           results.markedFailed++
-          results.alertsSent++
+          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord)
         }
       } else if (monitor.status === "HEALTHY") {
         // Within grace period - mark as LATE
@@ -84,6 +83,7 @@ export async function GET(req: NextRequest) {
         },
       },
       include: {
+        user: true,
         alerts: {
           where: {
             type: "DOWN",
@@ -111,17 +111,12 @@ export async function GET(req: NextRequest) {
         })
 
         if (!hasRecentRecovery) {
-          await prisma.alert.create({
-            data: {
-              monitorId: monitor.id,
-              type: "RECOVERY",
-              channel: "EMAIL",
-            },
-          })
-
-          // TODO: Send recovery email
-          await sendAlert(monitor, "RECOVERY")
-          results.alertsSent++
+          const sent = await sendAllAlerts(monitor, "RECOVERY")
+          await prisma.$transaction([
+            ...(sent.email ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "RECOVERY", channel: "EMAIL" } })] : []),
+            ...(sent.slack ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "RECOVERY", channel: "SLACK" } })] : []),
+          ])
+          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord)
         }
       }
     }
@@ -140,13 +135,66 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function sendAlert(monitor: any, type: "DOWN" | "RECOVERY") {
-  // Placeholder for email sending logic
-  // TODO: Integrate with Resend or similar email service
-  console.log(`Alert: Monitor ${monitor.name} is ${type}`)
-  
-  // In production, you would:
-  // 1. Get user's email from monitor.user
-  // 2. Send email via Resend/AWS SES
-  // 3. Handle webhooks if configured
+async function sendAllAlerts(monitor: any & { user: { email: string, plan: any } }, type: "DOWN" | "RECOVERY") {
+  // Determine feature flags from plan
+  const { webhooks } = getPlanLimits(monitor.user.plan)
+
+  // Prepare minimal monitor info for templates
+  const m = {
+    id: monitor.id,
+    name: monitor.name,
+    lastPingAt: monitor.lastPingAt,
+    intervalSeconds: monitor.intervalSeconds,
+  }
+
+  let emailSent = false
+  let slackSent = false
+  let discordSent = false
+
+  // Email is available on all plans
+  // Send to account email
+  try {
+    await sendEmailAlert({ email: monitor.user.email }, m, type as any)
+    emailSent = true
+  } catch (e) {
+    console.error('Email alert failed for account email:', e)
+  }
+
+  // Send to additional emails if configured
+  if (monitor.alertEmails) {
+    const additionalEmails = monitor.alertEmails
+      .split(',')
+      .map((email: string) => email.trim())
+      .filter((email: string) => email.length > 0)
+    
+    for (const email of additionalEmails) {
+      try {
+        await sendEmailAlert({ email }, m, type as any)
+      } catch (e) {
+        console.error(`Email alert failed for ${email}:`, e)
+      }
+    }
+  }
+
+  // Webhooks (Slack/Discord) only if plan allows and URLs are set
+  if (webhooks) {
+    if (monitor.slackWebhookUrl) {
+      try {
+        await sendSlackWebhook(monitor.slackWebhookUrl, m as any, type as any)
+        slackSent = true
+      } catch (e) {
+        console.error('Slack webhook failed:', e)
+      }
+    }
+    if (monitor.discordWebhookUrl) {
+      try {
+        await sendDiscordWebhook(monitor.discordWebhookUrl, m as any, type as any)
+        discordSent = true
+      } catch (e) {
+        console.error('Discord webhook failed:', e)
+      }
+    }
+  }
+
+  return { email: emailSent, slack: slackSent, discord: discordSent }
 }

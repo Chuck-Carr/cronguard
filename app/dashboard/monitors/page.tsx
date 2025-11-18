@@ -89,72 +89,95 @@ export default async function MonitorsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {monitors.map((monitor) => (
-            <Card key={monitor.id}>
-              <CardContent className="p-6">
-                <Link href={`/dashboard/monitors/${monitor.id}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className={`w-3 h-3 rounded-full mt-1.5 ${getStatusColor(monitor.status)}`} />
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">
+            <Link
+              key={monitor.id}
+              href={`/dashboard/monitors/${monitor.id}`}
+              className="block"
+            >
+              <Card className="hover:shadow-md transition-shadow">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      {/* Status Icon */}
+                      <div className="relative">
+                        {monitor.status === 'HEALTHY' && (
+                          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          </div>
+                        )}
+                        {monitor.status === 'LATE' && (
+                          <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                        )}
+                        {monitor.status === 'FAILED' && (
+                          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Monitor Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-base font-semibold text-zinc-900 dark:text-white truncate">
                             {monitor.name}
                           </h3>
                           <span className={`
-                            px-2 py-0.5 text-xs font-medium rounded
-                            ${monitor.status === 'HEALTHY' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}
-                            ${monitor.status === 'LATE' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
-                            ${monitor.status === 'FAILED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : ''}
+                            px-2 py-0.5 text-xs font-medium rounded-full
+                            ${monitor.status === 'HEALTHY' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
+                            ${monitor.status === 'LATE' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
+                            ${monitor.status === 'FAILED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : ''}
                           `}>
                             {monitor.status}
                           </span>
                         </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <div className="text-zinc-500 dark:text-zinc-400">Interval</div>
-                            <div className="font-medium text-zinc-900 dark:text-white">
-                              Every {formatInterval(monitor.intervalSeconds)}
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <div className="text-zinc-500 dark:text-zinc-400">Last Ping</div>
-                            <div className="font-medium text-zinc-900 dark:text-white">
-                              {monitor.lastPingAt 
-                                ? new Date(monitor.lastPingAt).toLocaleDateString()
-                                : 'Never'
-                              }
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="text-zinc-500 dark:text-zinc-400">Total Pings</div>
-                            <div className="font-medium text-zinc-900 dark:text-white">
-                              {monitor._count.pings}
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="text-zinc-500 dark:text-zinc-400">Alerts Sent</div>
-                            <div className="font-medium text-zinc-900 dark:text-white">
-                              {monitor._count.alerts}
-                            </div>
-                          </div>
+                        
+                        <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+                          <span>Every {formatInterval(monitor.intervalSeconds)}</span>
+                          <span>•</span>
+                          <span>
+                            {monitor.lastPingAt 
+                              ? `Last: ${new Date(monitor.lastPingAt).toLocaleString()}`
+                              : 'Never pinged'
+                            }
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    <Button variant="ghost" size="sm">
-                      View →
-                    </Button>
+                    {/* Stats */}
+                    <div className="flex items-center gap-6 text-sm">
+                      <div className="text-center">
+                        <div className="text-zinc-500 dark:text-zinc-400 text-xs mb-1">Pings</div>
+                        <div className="font-semibold text-zinc-900 dark:text-white">
+                          {monitor._count.pings}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-zinc-500 dark:text-zinc-400 text-xs mb-1">Alerts</div>
+                        <div className="font-semibold text-zinc-900 dark:text-white">
+                          {monitor._count.alerts}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
                   </div>
-                </Link>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyButton } from '@/components/copy-button'
+import { MonitorActions } from '@/components/monitor-actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -90,6 +91,7 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
               Created {new Date(monitor.createdAt).toLocaleDateString()}
             </p>
           </div>
+          <MonitorActions monitorId={monitor.id} monitorName={monitor.name} />
         </div>
       </div>
 

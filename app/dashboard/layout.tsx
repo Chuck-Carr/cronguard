@@ -14,10 +14,12 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
+    <div className="flex h-screen overflow-hidden">
       <DashboardNav user={{ email: session.user.email!, plan: session.user.plan! }} />
-      <main className="container mx-auto px-4 py-8">
-        {children}
+      <main className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-900">
+        <div className="max-w-7xl mx-auto px-8 py-8">
+          {children}
+        </div>
       </main>
     </div>
   )
