@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { prisma } from "@/lib/prisma"
+import { sql } from "@/lib/db"
+import { User } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -15,9 +16,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
+        const [user] = await sql<User[]>`
+          SELECT * FROM "User" WHERE email = ${credentials.email as string}
+        `
 
         if (!user) {
           return null

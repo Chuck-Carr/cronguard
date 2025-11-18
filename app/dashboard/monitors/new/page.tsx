@@ -34,6 +34,7 @@ export default function NewMonitorPage() {
   const [gracePeriodSeconds, setGracePeriodSeconds] = useState(300)
   const [slackWebhookUrl, setSlackWebhookUrl] = useState('')
   const [discordWebhookUrl, setDiscordWebhookUrl] = useState('')
+  const [teamsWebhookUrl, setTeamsWebhookUrl] = useState('')
   const [alertEmails, setAlertEmails] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -53,6 +54,7 @@ export default function NewMonitorPage() {
           gracePeriodSeconds,
           slackWebhookUrl: slackWebhookUrl || null,
           discordWebhookUrl: discordWebhookUrl || null,
+          teamsWebhookUrl: teamsWebhookUrl || null,
           alertEmails: alertEmails || null,
         }),
       })
@@ -167,7 +169,7 @@ export default function NewMonitorPage() {
                 Notifications (Optional)
               </h3>
               <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                Configure webhook URLs to receive alerts in Slack or Discord. Available on STARTER plan and above.
+                Configure webhook URLs to receive alerts in Slack, Discord, or Teams. Available on STARTER plan and above.
               </p>
 
               <div className="space-y-4">
@@ -193,6 +195,14 @@ export default function NewMonitorPage() {
                   value={discordWebhookUrl}
                   onChange={(e) => setDiscordWebhookUrl(e.target.value)}
                   helperText="Get from Discord: Server Settings → Integrations → Webhooks"
+                />
+
+                <Input
+                  label="Microsoft Teams Webhook URL"
+                  placeholder="https://yourorg.webhook.office.com/webhookb2/..."
+                  value={teamsWebhookUrl}
+                  onChange={(e) => setTeamsWebhookUrl(e.target.value)}
+                  helperText="Get from Teams: Channel → ... → Connectors → Incoming Webhook"
                 />
               </div>
             </div>

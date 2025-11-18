@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { sendEmailAlert, sendDiscordWebhook, sendSlackWebhook } from "@/lib/notifications"
+import { sql } from "@/lib/db"
+import { Monitor, User, Alert } from "@/lib/types"
+import { sendEmailAlert, sendDiscordWebhook, sendSlackWebhook, sendTeamsWebhook } from "@/lib/notifications"
 import { getPlanLimits } from "@/lib/plan-limits"
+import { randomUUID } from "crypto"
 
 // This endpoint should be called every minute via Vercel Cron or similar
 export async function GET(req: NextRequest) {
@@ -17,17 +19,13 @@ export async function GET(req: NextRequest) {
     const now = new Date()
 
     // Find monitors that should have pinged by now but haven't
-    const lateMonitors = await prisma.monitor.findMany({
-      where: {
-        status: { in: ["HEALTHY", "LATE"] },
-        nextExpectedPingAt: {
-          lte: now,
-        },
-      },
-      include: {
-        user: true,
-      },
-    })
+    const lateMonitors = await sql<(Monitor & { user: User })[]>`
+      SELECT m.*, row_to_json(u.*) as user
+      FROM "Monitor" m
+      JOIN "User" u ON u.id = m."userId"
+      WHERE m.status IN ('HEALTHY', 'LATE')
+        AND m."nextExpectedPingAt" <= ${now}
+    `
 
     const results = {
       checked: lateMonitors.length,
@@ -37,86 +35,91 @@ export async function GET(req: NextRequest) {
     }
 
     for (const monitor of lateMonitors) {
-      const gracePeriodEnd = monitor.nextExpectedPingAt
-        ? new Date(
-            monitor.nextExpectedPingAt.getTime() +
-              monitor.gracePeriodSeconds * 1000
-          )
-        : now
+      const nextExpected = new Date(monitor.nextExpectedPingAt!)
+      const gracePeriodEnd = new Date(
+        nextExpected.getTime() + monitor.gracePeriodSeconds * 1000
+      )
+
+      console.log(`Monitor ${monitor.name}:`, {
+        now: now.toISOString(),
+        nextExpected: nextExpected.toISOString(),
+        gracePeriodEnd: gracePeriodEnd.toISOString(),
+        gracePeriodSeconds: monitor.gracePeriodSeconds,
+        shouldFail: now >= gracePeriodEnd,
+        status: monitor.status
+      })
 
       if (now >= gracePeriodEnd) {
         // Grace period expired - mark as FAILED and send alert
         if (monitor.status !== "FAILED") {
-          await prisma.monitor.update({
-            where: { id: monitor.id },
-            data: { status: "FAILED" },
-          })
+          await sql`
+            UPDATE "Monitor"
+            SET status = 'FAILED', "updatedAt" = NOW()
+            WHERE id = ${monitor.id}
+          `
 
           // Send alerts (email + webhooks if enabled)
           const sent = await sendAllAlerts(monitor, "DOWN")
 
           // Record alert rows for channels we actually sent
-          await prisma.$transaction([
-            ...(sent.email ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "DOWN", channel: "EMAIL" } })] : []),
-            ...(sent.slack ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "DOWN", channel: "SLACK" } })] : []),
-          ])
+          const alertPromises = []
+          if (sent.email) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'DOWN', 'EMAIL', NOW(), NOW())`)
+          if (sent.slack) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'DOWN', 'SLACK', NOW(), NOW())`)
+          if (sent.discord) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'DOWN', 'DISCORD', NOW(), NOW())`)
+          if (sent.teams) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'DOWN', 'TEAMS', NOW(), NOW())`)
+          await Promise.all(alertPromises)
 
           results.markedFailed++
-          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord)
+          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord) + Number(sent.teams)
         }
       } else if (monitor.status === "HEALTHY") {
         // Within grace period - mark as LATE
-        await prisma.monitor.update({
-          where: { id: monitor.id },
-          data: { status: "LATE" },
-        })
+        await sql`
+          UPDATE "Monitor"
+          SET status = 'LATE', "updatedAt" = NOW()
+          WHERE id = ${monitor.id}
+        `
         results.markedLate++
       }
     }
 
     // Check for recovered monitors (recently pinged after being down)
-    const recoveredMonitors = await prisma.monitor.findMany({
-      where: {
-        status: "HEALTHY",
-        updatedAt: {
-          gte: new Date(now.getTime() - 60 * 1000), // Last minute
-        },
-      },
-      include: {
-        user: true,
-        alerts: {
-          where: {
-            type: "DOWN",
-            sentAt: {
-              gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Last 24 hours
-            },
-          },
-          orderBy: { sentAt: "desc" },
-          take: 1,
-        },
-      },
-    })
+    const recoveredMonitors = await sql<(Monitor & { user: User, recentDownAlertAt: Date | null })[]>`
+      SELECT m.*, 
+             row_to_json(u.*) as user,
+             (SELECT a."sentAt" 
+              FROM "Alert" a 
+              WHERE a."monitorId" = m.id 
+                AND a.type = 'DOWN' 
+                AND a."sentAt" >= ${new Date(now.getTime() - 24 * 60 * 60 * 1000)}
+              ORDER BY a."sentAt" DESC 
+              LIMIT 1) as "recentDownAlertAt"
+      FROM "Monitor" m
+      JOIN "User" u ON u.id = m."userId"
+      WHERE m.status = 'HEALTHY'
+        AND m."updatedAt" >= ${new Date(now.getTime() - 60 * 1000)}
+    `
 
     for (const monitor of recoveredMonitors) {
       // If there was a recent DOWN alert and no RECOVERY alert yet, send recovery
-      if (monitor.alerts.length > 0) {
-        const hasRecentRecovery = await prisma.alert.findFirst({
-          where: {
-            monitorId: monitor.id,
-            type: "RECOVERY",
-            sentAt: {
-              gte: monitor.alerts[0].sentAt,
-            },
-          },
-        })
+      if (monitor.recentDownAlertAt) {
+        const [hasRecentRecovery] = await sql<Alert[]>`
+          SELECT * FROM "Alert"
+          WHERE "monitorId" = ${monitor.id}
+            AND type = 'RECOVERY'
+            AND "sentAt" >= ${monitor.recentDownAlertAt}
+          LIMIT 1
+        `
 
         if (!hasRecentRecovery) {
           const sent = await sendAllAlerts(monitor, "RECOVERY")
-          await prisma.$transaction([
-            ...(sent.email ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "RECOVERY", channel: "EMAIL" } })] : []),
-            ...(sent.slack ? [prisma.alert.create({ data: { monitorId: monitor.id, type: "RECOVERY", channel: "SLACK" } })] : []),
-          ])
-          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord)
+          const alertPromises = []
+          if (sent.email) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'EMAIL', NOW(), NOW())`)
+          if (sent.slack) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'SLACK', NOW(), NOW())`)
+          if (sent.discord) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'DISCORD', NOW(), NOW())`)
+          if (sent.teams) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'TEAMS', NOW(), NOW())`)
+          await Promise.all(alertPromises)
+          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord) + Number(sent.teams)
         }
       }
     }
@@ -150,6 +153,7 @@ async function sendAllAlerts(monitor: any & { user: { email: string, plan: any }
   let emailSent = false
   let slackSent = false
   let discordSent = false
+  let teamsSent = false
 
   // Email is available on all plans
   // Send to account email
@@ -194,7 +198,15 @@ async function sendAllAlerts(monitor: any & { user: { email: string, plan: any }
         console.error('Discord webhook failed:', e)
       }
     }
+    if (monitor.teamsWebhookUrl) {
+      try {
+        await sendTeamsWebhook(monitor.teamsWebhookUrl, m as any, type as any)
+        teamsSent = true
+      } catch (e) {
+        console.error('Teams webhook failed:', e)
+      }
+    }
   }
 
-  return { email: emailSent, slack: slackSent, discord: discordSent }
+  return { email: emailSent, slack: slackSent, discord: discordSent, teams: teamsSent }
 }

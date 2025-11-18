@@ -1,5 +1,7 @@
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
+import { Monitor, User } from '@/lib/types'
+import { formatDateTime } from '@/lib/date-utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -12,30 +14,34 @@ export default async function DashboardPage() {
     return null
   }
 
-  const [monitors, user] = await Promise.all([
-    prisma.monitor.findMany({
-      where: { userId: session.user.id },
-      include: {
-        _count: {
-          select: { pings: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    }),
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        _count: {
-          select: { monitors: true }
-        }
-      }
-    })
+  const [monitors, [user]] = await Promise.all([
+    sql<(Monitor & { pingCount: number })[]>`
+      SELECT m.*, COUNT(p.id)::int as "pingCount"
+      FROM "Monitor" m
+      LEFT JOIN "Ping" p ON p."monitorId" = m.id
+      WHERE m."userId" = ${session.user.id}
+      GROUP BY m.id
+      ORDER BY m."createdAt" DESC
+      LIMIT 5
+    `,
+    sql<(User & { monitorCount: number })[]>`
+      SELECT u.*, COUNT(m.id)::int as "monitorCount"
+      FROM "User" u
+      LEFT JOIN "Monitor" m ON m."userId" = u.id
+      WHERE u.id = ${session.user.id}
+      GROUP BY u.id
+    `
   ])
 
-  const healthyCount = monitors.filter(m => m.status === 'HEALTHY').length
-  const failedCount = monitors.filter(m => m.status === 'FAILED').length
-  const lateCount = monitors.filter(m => m.status === 'LATE').length
+  // Transform to match expected format
+  const monitorsWithCount = monitors.map(m => ({
+    ...m,
+    _count: { pings: m.pingCount }
+  }))
+
+  const healthyCount = monitorsWithCount.filter(m => m.status === 'HEALTHY').length
+  const failedCount = monitorsWithCount.filter(m => m.status === 'FAILED').length
+  const lateCount = monitorsWithCount.filter(m => m.status === 'LATE').length
 
   return (
     <div className="space-y-8">
@@ -61,7 +67,7 @@ export default async function DashboardPage() {
               Total Monitors
             </div>
             <div className="text-3xl font-bold text-zinc-900 dark:text-white mt-2">
-              {user?._count.monitors || 0}
+              {user?.monitorCount || 0}
             </div>
           </CardContent>
         </Card>
@@ -110,7 +116,7 @@ export default async function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {monitors.length === 0 ? (
+          {monitorsWithCount.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-zinc-500 dark:text-zinc-400 mb-4">
                 No monitors yet. Create your first monitor to get started.
@@ -121,7 +127,7 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {monitors.map((monitor) => (
+              {monitorsWithCount.map((monitor) => (
                 <Link
                   key={monitor.id}
                   href={`/dashboard/monitors/${monitor.id}`}
@@ -142,7 +148,7 @@ export default async function DashboardPage() {
                         <div className="text-sm text-zinc-500 dark:text-zinc-400">
                           {monitor._count.pings} pings • 
                           {monitor.lastPingAt 
-                            ? ` Last ping ${new Date(monitor.lastPingAt).toLocaleString()}`
+                            ? ` Last ping ${formatDateTime(monitor.lastPingAt)} ET`
                             : ' Never pinged'
                           }
                         </div>

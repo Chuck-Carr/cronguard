@@ -31,6 +31,8 @@ enum AlertType {
 enum AlertChannel {
   EMAIL
   SLACK
+  DISCORD
+  TEAMS
   SMS
 }
 
@@ -59,6 +61,7 @@ model Monitor {
   nextExpectedPingAt    DateTime?
   slackWebhookUrl       String?       // Slack webhook URL
   discordWebhookUrl     String?       // Discord webhook URL
+  teamsWebhookUrl       String?       // Microsoft Teams webhook URL
   alertEmails           String?       // Comma-separated additional email addresses
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt

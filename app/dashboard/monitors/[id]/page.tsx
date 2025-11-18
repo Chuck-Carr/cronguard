@@ -1,8 +1,12 @@
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
+import { Monitor, Ping, Alert } from '@/lib/types'
+import { formatDateTime, formatDate } from '@/lib/date-utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyButton } from '@/components/copy-button'
 import { MonitorActions } from '@/components/monitor-actions'
+import { AlertItem } from '@/components/alert-item'
+import { PingsList } from '@/components/pings-list'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -18,29 +22,69 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
     return null
   }
 
-  const monitor = await prisma.monitor.findFirst({
-    where: {
-      id,
-      userId: session.user.id
-    },
-    include: {
-      pings: {
-        orderBy: { pingedAt: 'desc' },
-        take: 20
-      },
-      alerts: {
-        orderBy: { sentAt: 'desc' },
-        take: 10
-      },
-      _count: {
-        select: { pings: true, alerts: true }
-      }
-    }
-  })
+  const [monitor] = await sql<Monitor[]>`
+    SELECT * FROM "Monitor"
+    WHERE id = ${id} AND "userId" = ${session.user.id}
+  `
 
   if (!monitor) {
     notFound()
   }
+
+  // Fetch pings, alerts, and counts
+  const [pings, alerts, [counts]] = await Promise.all([
+    sql<Ping[]>`
+      SELECT * FROM "Ping"
+      WHERE "monitorId" = ${id}
+      ORDER BY "pingedAt" DESC
+      LIMIT 20
+    `,
+    sql<Alert[]>`
+      SELECT * FROM "Alert"
+      WHERE "monitorId" = ${id}
+      ORDER BY "sentAt" DESC
+      LIMIT 50
+    `,
+    sql<[{ pingCount: number, alertCount: number }]>`
+      SELECT 
+        (SELECT COUNT(*)::int FROM "Ping" WHERE "monitorId" = ${id}) as "pingCount",
+        (SELECT COUNT(*)::int FROM "Alert" WHERE "monitorId" = ${id}) as "alertCount"
+    `
+  ])
+
+  // Attach to monitor object
+  const monitorWithData = {
+    ...monitor,
+    pings,
+    alerts,
+    _count: { pings: counts.pingCount, alerts: counts.alertCount }
+  }
+
+  // Group alerts by type and timestamp (within 5 seconds)
+  const groupedAlerts = monitorWithData.alerts.reduce((groups: any[], alert) => {
+    const lastGroup = groups[groups.length - 1]
+    const alertTime = new Date(alert.sentAt).getTime()
+    
+    if (
+      lastGroup && 
+      lastGroup.type === alert.type && 
+      Math.abs(new Date(lastGroup.sentAt).getTime() - alertTime) < 5000
+    ) {
+      // Add to existing group
+      lastGroup.channels.push(alert.channel)
+    } else {
+      // Create new group
+      groups.push({
+        type: alert.type,
+        sentAt: alert.sentAt,
+        channels: [alert.channel]
+      })
+    }
+    return groups
+  }, [])
+
+  // Take only the 10 most recent grouped alerts
+  const recentGroupedAlerts = groupedAlerts.slice(0, 10)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -67,7 +111,7 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
     return `${Math.floor(seconds / 86400)}d`
   }
 
-  const pingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/ping/${monitor.pingUrl}`
+  const pingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/ping/${monitorWithData.pingUrl}`
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -79,19 +123,19 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
         <div className="flex items-start justify-between mt-4">
           <div>
             <div className="flex items-center gap-3">
-              <div className={`w-4 h-4 rounded-full ${getStatusColor(monitor.status)}`} />
+              <div className={`w-4 h-4 rounded-full ${getStatusColor(monitorWithData.status)}`} />
               <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
-                {monitor.name}
+                {monitorWithData.name}
               </h1>
-              <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadgeColor(monitor.status)}`}>
-                {monitor.status}
+              <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadgeColor(monitorWithData.status)}`}>
+                {monitorWithData.status}
               </span>
             </div>
             <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-              Created {new Date(monitor.createdAt).toLocaleDateString()}
+              Created {formatDate(monitorWithData.createdAt)} ET
             </p>
           </div>
-          <MonitorActions monitorId={monitor.id} monitorName={monitor.name} />
+          <MonitorActions monitorId={monitorWithData.id} monitorName={monitorWithData.name} />
         </div>
       </div>
 
@@ -104,22 +148,22 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
             <div>
               <div className="text-sm text-zinc-500 dark:text-zinc-400">Expected Interval</div>
               <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                Every {formatInterval(monitor.intervalSeconds)}
+              Every {formatInterval(monitorWithData.intervalSeconds)}
               </div>
             </div>
             
             <div>
               <div className="text-sm text-zinc-500 dark:text-zinc-400">Grace Period</div>
               <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                {formatInterval(monitor.gracePeriodSeconds)}
+                {formatInterval(monitorWithData.gracePeriodSeconds)}
               </div>
             </div>
 
             <div>
               <div className="text-sm text-zinc-500 dark:text-zinc-400">Last Ping</div>
               <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                {monitor.lastPingAt 
-                  ? new Date(monitor.lastPingAt).toLocaleString()
+                {monitorWithData.lastPingAt 
+                  ? `${formatDateTime(monitorWithData.lastPingAt)} ET`
                   : 'Never'
                 }
               </div>
@@ -128,8 +172,8 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
             <div>
               <div className="text-sm text-zinc-500 dark:text-zinc-400">Next Expected</div>
               <div className="text-lg font-semibold text-zinc-900 dark:text-white">
-                {monitor.nextExpectedPingAt 
-                  ? new Date(monitor.nextExpectedPingAt).toLocaleString()
+                {monitorWithData.nextExpectedPingAt 
+                  ? `${formatDateTime(monitorWithData.nextExpectedPingAt)} ET`
                   : 'N/A'
                 }
               </div>
@@ -146,14 +190,14 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
               <div>
                 <div className="text-sm text-zinc-500 dark:text-zinc-400">Total Pings</div>
                 <div className="text-2xl font-bold text-zinc-900 dark:text-white">
-                  {monitor._count.pings}
+                  {monitorWithData._count.pings}
                 </div>
               </div>
               
               <div>
                 <div className="text-sm text-zinc-500 dark:text-zinc-400">Total Alerts</div>
                 <div className="text-2xl font-bold text-zinc-900 dark:text-white">
-                  {monitor._count.alerts}
+                  {monitorWithData._count.alerts}
                 </div>
               </div>
             </div>
@@ -188,74 +232,32 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Pings ({monitor.pings.length})</CardTitle>
+          <CardTitle>Recent Pings ({monitorWithData.pings.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {monitor.pings.length === 0 ? (
-            <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
-              No pings recorded yet. Send your first ping to test the monitor.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {monitor.pings.map((ping) => (
-                <div
-                  key={ping.id}
-                  className="flex items-center justify-between py-3 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <div>
-                      <div className="text-sm font-medium text-zinc-900 dark:text-white">
-                        Ping received
-                      </div>
-                      {ping.message && (
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {ping.message}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {new Date(ping.pingedAt).toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <PingsList pings={monitorWithData.pings} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Alerts ({monitor.alerts.length})</CardTitle>
+          <CardTitle>Recent Alerts ({recentGroupedAlerts.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {monitor.alerts.length === 0 ? (
+          {recentGroupedAlerts.length === 0 ? (
             <div className="text-center py-8 text-zinc-500 dark:text-zinc-400">
               No alerts sent yet.
             </div>
           ) : (
             <div className="space-y-2">
-              {monitor.alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className="flex items-center justify-between py-3 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${alert.type === 'DOWN' ? 'bg-red-500' : 'bg-green-500'}`} />
-                    <div>
-                      <div className="text-sm font-medium text-zinc-900 dark:text-white">
-                        {alert.type === 'DOWN' ? 'Monitor went down' : 'Monitor recovered'}
-                      </div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                        via {alert.channel}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {new Date(alert.sentAt).toLocaleString()}
-                  </div>
-                </div>
+              {recentGroupedAlerts.map((alert, index) => (
+                <AlertItem
+                  key={index}
+                  type={alert.type}
+                  sentAt={alert.sentAt}
+                  channels={alert.channels}
+                  monitorName={monitorWithData.name}
+                />
               ))}
             </div>
           )}

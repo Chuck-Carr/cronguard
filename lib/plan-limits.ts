@@ -1,4 +1,4 @@
-import { Plan } from '@prisma/client'
+import { Plan } from './types'
 
 export const PLAN_LIMITS = {
   FREE: {

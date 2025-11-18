@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { sql } from "@/lib/db"
+import { Monitor } from "@/lib/types"
+import { randomUUID } from "crypto"
 
 export async function GET(
   req: NextRequest,
@@ -22,9 +24,9 @@ async function handlePing(
   try {
     const { pingUrl } = await params
     
-    const monitor = await prisma.monitor.findUnique({
-      where: { pingUrl },
-    })
+    const [monitor] = await sql<Monitor[]>`
+      SELECT * FROM "Monitor" WHERE "pingUrl" = ${pingUrl}
+    `
 
     if (!monitor) {
       return NextResponse.json({ error: "Monitor not found" }, { status: 404 })
@@ -54,24 +56,21 @@ async function handlePing(
                       "unknown"
 
     // Update monitor and create ping in transaction
-    await prisma.$transaction([
-      prisma.monitor.update({
-        where: { id: monitor.id },
-        data: {
-          status: "HEALTHY",
-          lastPingAt: now,
-          nextExpectedPingAt,
-        },
-      }),
-      prisma.ping.create({
-        data: {
-          monitorId: monitor.id,
-          pingedAt: now,
-          message,
-          ipAddress,
-        },
-      }),
-    ])
+    await sql.begin(async sql => {
+      await sql`
+        UPDATE "Monitor"
+        SET status = 'HEALTHY',
+            "lastPingAt" = ${now},
+            "nextExpectedPingAt" = ${nextExpectedPingAt},
+            "updatedAt" = NOW()
+        WHERE id = ${monitor.id}
+      `
+      
+      await sql`
+        INSERT INTO "Ping" (id, "monitorId", "pingedAt", message, "ipAddress", "createdAt")
+        VALUES (${randomUUID()}, ${monitor.id}, ${now}, ${message || null}, ${ipAddress}, NOW())
+      `
+    })
 
     return NextResponse.json({
       success: true,

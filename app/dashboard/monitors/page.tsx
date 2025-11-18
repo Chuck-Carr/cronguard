@@ -1,5 +1,7 @@
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
+import { Monitor, User } from '@/lib/types'
+import { formatDateTime } from '@/lib/date-utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -13,28 +15,35 @@ export default async function MonitorsPage() {
     return null
   }
 
-  const [monitors, user] = await Promise.all([
-    prisma.monitor.findMany({
-      where: { userId: session.user.id },
-      include: {
-        _count: {
-          select: { pings: true, alerts: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    }),
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        _count: {
-          select: { monitors: true }
-        }
-      }
-    })
+  const [monitors, [user]] = await Promise.all([
+    sql<(Monitor & { pingCount: number, alertCount: number })[]>`
+      SELECT m.*, 
+             COUNT(DISTINCT p.id)::int as "pingCount",
+             COUNT(DISTINCT a.id)::int as "alertCount"
+      FROM "Monitor" m
+      LEFT JOIN "Ping" p ON p."monitorId" = m.id
+      LEFT JOIN "Alert" a ON a."monitorId" = m.id
+      WHERE m."userId" = ${session.user.id}
+      GROUP BY m.id
+      ORDER BY m."createdAt" DESC
+    `,
+    sql<(User & { monitorCount: number })[]>`
+      SELECT u.*, COUNT(m.id)::int as "monitorCount"
+      FROM "User" u
+      LEFT JOIN "Monitor" m ON m."userId" = u.id
+      WHERE u.id = ${session.user.id}
+      GROUP BY u.id
+    `
   ])
 
+  // Transform to match expected format
+  const monitorsWithCount = monitors.map(m => ({
+    ...m,
+    _count: { pings: m.pingCount, alerts: m.alertCount }
+  }))
+
   const planLimits = getPlanLimits(user!.plan)
-  const canCreateMore = planLimits.monitors === -1 || user!._count.monitors < planLimits.monitors
+  const canCreateMore = planLimits.monitors === -1 || user!.monitorCount < planLimits.monitors
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -61,7 +70,7 @@ export default async function MonitorsPage() {
             Monitors
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-            {user!._count.monitors} of {planLimits.monitors === -1 ? '∞' : planLimits.monitors} monitors used
+            {user!.monitorCount} of {planLimits.monitors === -1 ? '∞' : planLimits.monitors} monitors used
           </p>
         </div>
         {canCreateMore ? (
@@ -75,7 +84,7 @@ export default async function MonitorsPage() {
         )}
       </div>
 
-      {monitors.length === 0 ? (
+      {monitorsWithCount.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
@@ -90,7 +99,7 @@ export default async function MonitorsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {monitors.map((monitor) => (
+          {monitorsWithCount.map((monitor) => (
             <Link
               key={monitor.id}
               href={`/dashboard/monitors/${monitor.id}`}
@@ -146,7 +155,7 @@ export default async function MonitorsPage() {
                           <span>•</span>
                           <span>
                             {monitor.lastPingAt 
-                              ? `Last: ${new Date(monitor.lastPingAt).toLocaleString()}`
+                              ? `Last: ${formatDateTime(monitor.lastPingAt)} ET`
                               : 'Never pinged'
                             }
                           </span>

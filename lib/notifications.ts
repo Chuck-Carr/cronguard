@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { AlertType } from '@prisma/client'
+import { AlertType } from './types'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const fromEmail = process.env.FROM_EMAIL || 'alerts@cronguard.app'
@@ -224,6 +224,73 @@ export async function sendSlackWebhook(
     console.log(`💬 Slack webhook sent for ${monitor.name} (${alertType})`)
   } catch (error) {
     console.error('Failed to send Slack webhook:', error)
+    throw error
+  }
+}
+
+// Send Teams webhook
+export async function sendTeamsWebhook(
+  webhookUrl: string,
+  monitor: Monitor,
+  alertType: AlertType
+) {
+  const isDown = alertType === 'DOWN'
+  const monitorUrl = `${appUrl}/dashboard/monitors/${monitor.id}`
+  
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
+        "summary": isDown 
+          ? `Monitor Down: ${monitor.name}`
+          : `Monitor Recovered: ${monitor.name}`,
+        "themeColor": isDown ? "DC2626" : "16A34A", // Red or Green
+        "title": isDown ? "🚨 Monitor Down" : "✅ Monitor Recovered",
+        "sections": [
+          {
+            "activityTitle": monitor.name,
+            "facts": [
+              {
+                "name": "Status:",
+                "value": isDown ? "🔴 Down" : "🟢 Healthy"
+              },
+              {
+                "name": "Last Ping:",
+                "value": monitor.lastPingAt 
+                  ? new Date(monitor.lastPingAt).toLocaleString() 
+                  : "Never"
+              },
+              {
+                "name": "Expected Interval:",
+                "value": `Every ${formatInterval(monitor.intervalSeconds)}`
+              }
+            ],
+            "text": isDown
+              ? "Your monitor has not received a ping within the expected interval and grace period."
+              : "Your monitor has received a ping and is now back online."
+          }
+        ],
+        "potentialAction": [
+          {
+            "@type": "OpenUri",
+            "name": "View Monitor Details",
+            "targets": [
+              {
+                "os": "default",
+                "uri": monitorUrl
+              }
+            ]
+          }
+        ]
+      })
+    })
+    
+    console.log(`📢 Teams webhook sent for ${monitor.name} (${alertType})`)
+  } catch (error) {
+    console.error('Failed to send Teams webhook:', error)
     throw error
   }
 }
