@@ -183,7 +183,7 @@ export default function IntegrationsPage() {
       </Card>
 
       {/* 1. Cron */}
-      <Card id="cron" hover>
+      <Card id="crontab" hover>
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 flex items-center justify-center bg-zinc-900 dark:bg-zinc-800 rounded-xl">
@@ -199,17 +199,60 @@ export default function IntegrationsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-zinc-600 dark:text-zinc-400">
-            Add a curl command after your cron job to ping TaskAlive on success:
-          </p>
-          <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-sm">
-            <div className="text-zinc-500"># Ping only on success</div>
-            <div className="text-zinc-300 mt-2">
-              <span className="text-purple-400">0 2 * * *</span>
-              <span className="text-zinc-300"> /path/to/backup.sh </span>
-              <span className="text-blue-400">&& </span>
-              <span className="text-green-400">curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</span>
+        <CardContent className="space-y-6">
+          <div>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              Add a curl command after your cron job to ping TaskAlive when the job succeeds. The <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded text-sm">&amp;&amp;</code> operator ensures the ping only happens if the previous command exits successfully.
+            </p>
+            <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-sm">
+              <div className="text-zinc-500"># Run at 2 AM daily</div>
+              <div className="text-zinc-300 mt-2">
+                <span className="text-purple-400">0 2 * * *</span>
+                <span className="text-zinc-300"> /path/to/backup.sh </span>
+                <span className="text-blue-400">&amp;&amp; </span>
+                <span className="text-green-400">curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3">Multiple Commands</h3>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              For scripts with multiple steps, only ping if all commands succeed:
+            </p>
+            <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-sm">
+              <div className="text-zinc-300">
+                <span className="text-purple-400">0 2 * * *</span>
+                <span className="text-zinc-300"> /backup/db.sh </span>
+                <span className="text-blue-400">&amp;&amp; </span>
+                <span className="text-zinc-300">/backup/files.sh </span>
+                <span className="text-blue-400">&amp;&amp; </span>
+                <span className="text-green-400">curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3">Editing Your Crontab</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600 dark:text-zinc-400 ml-1">
+              <li>Open your crontab: <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">crontab -e</code></li>
+              <li>Add your cron schedule with the curl command</li>
+              <li>Save and exit (usually <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">Ctrl+X</code> then <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">Y</code> in nano)</li>
+              <li>Verify with <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">crontab -l</code></li>
+            </ol>
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">Pro Tip</p>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Test your curl command manually first to make sure it works: <code className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 rounded">curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</code>
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -232,16 +275,66 @@ export default function IntegrationsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-zinc-600 dark:text-zinc-400">
-            Create a wrapper batch file that runs your task and pings on success:
-          </p>
-          <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-xs space-y-1">
-            <div className="text-green-400">@echo off</div>
-            <div className="text-zinc-300">call C:\path\to\your-script.bat</div>
-            <div className="text-blue-400 mt-2">if %ERRORLEVEL% EQU 0 (</div>
-            <div className="text-green-400 ml-4">  curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</div>
-            <div className="text-blue-400">)</div>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3">Batch File Wrapper</h3>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              Create a wrapper batch file that runs your task and pings TaskAlive when it succeeds:
+            </p>
+            <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-xs space-y-1">
+              <div className="text-green-400">@echo off</div>
+              <div className="text-zinc-500">REM monitored-task.bat</div>
+              <div className="text-zinc-300 mt-2">call C:\path\to\your-script.bat</div>
+              <div className="text-blue-400 mt-2">if %ERRORLEVEL% EQU 0 (</div>
+              <div className="text-green-400 ml-4">  curl -X POST https://taskalive.io/api/ping/YOUR_PING_URL</div>
+              <div className="text-blue-400">)</div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3">PowerShell Alternative</h3>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              If you prefer PowerShell:
+            </p>
+            <div className="bg-zinc-900 dark:bg-zinc-950 rounded-xl p-4 font-mono text-xs space-y-1">
+              <div className="text-green-400"># monitored-task.ps1</div>
+              <div className="text-blue-400">$PingUrl</div><span className="text-zinc-300"> = </span><span className="text-orange-400">"https://taskalive.io/api/ping/YOUR_PING_URL"</span>
+              <div className="text-zinc-300 mt-2">&amp; C:\path\to\your-script.bat</div>
+              <div className="text-blue-400 mt-2">if</div><span className="text-zinc-300"> (</span><span className="text-blue-400">$LASTEXITCODE</span><span className="text-zinc-300"> -eq 0) &#123;</span>
+              <div className="text-zinc-300 ml-4">Invoke-RestMethod -Uri </div><span className="text-blue-400">$PingUrl</span><span className="text-zinc-300"> -Method Post | Out-Null</span>
+              <div className="text-zinc-300">&#125;</div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3">Setting Up in Task Scheduler</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600 dark:text-zinc-400 ml-1">
+              <li>Open Task Scheduler (search "Task Scheduler" in Start menu)</li>
+              <li>Click "Create Task" in the Actions panel</li>
+              <li>In the <strong>General</strong> tab, give your task a name</li>
+              <li>In the <strong>Triggers</strong> tab, click "New" and set your schedule</li>
+              <li>In the <strong>Actions</strong> tab, click "New" and:
+                <ul className="list-disc list-inside ml-6 mt-2 space-y-1">
+                  <li>Action: Start a program</li>
+                  <li>Program/script: <code className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">C:\path\to\monitored-task.bat</code></li>
+                </ul>
+              </li>
+              <li>Click OK to save and test by running manually</li>
+            </ol>
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">Note</p>
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Windows 10+ includes curl by default. Test your wrapper script manually before scheduling it.
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -264,9 +357,40 @@ export default function IntegrationsPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-8">
-          <p className="text-zinc-600 dark:text-zinc-400">
-            TaskAlive can send alerts through multiple channels. Configure these in your monitor settings.
-          </p>
+          <div>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+              TaskAlive can send alerts through multiple channels when your monitors fail or recover. Configure these in your monitor settings to receive notifications wherever your team works.
+            </p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-4">
+                <h4 className="font-semibold text-zinc-900 dark:text-white mb-2">Alert Types</h4>
+                <ul className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span><strong>DOWN</strong> - When your task misses its expected run</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span><strong>RECOVERY</strong> - When your task runs again after failure</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-lg p-4">
+                <h4 className="font-semibold text-zinc-900 dark:text-white mb-2">Supported Channels</h4>
+                <ul className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+                  <li>• Email (automatic)</li>
+                  <li>• Slack webhooks</li>
+                  <li>• Discord webhooks</li>
+                  <li>• Microsoft Teams webhooks</li>
+                  <li>• SMS (Pro plan and above)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
 
           {/* Slack */}
           <div className="border-t border-zinc-200 dark:border-zinc-800 pt-6">

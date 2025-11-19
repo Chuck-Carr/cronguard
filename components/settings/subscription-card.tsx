@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plan } from '@/lib/types'
-import { PLAN_LIMITS } from '@/lib/plan-limits'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 interface SubscriptionCardProps {
@@ -53,17 +52,55 @@ const PLAN_FEATURES = {
 
 export function SubscriptionCard({ currentPlan, stripeCustomerId }: SubscriptionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleUpgrade = (plan: Plan) => {
-    // TODO: Implement Stripe checkout
-    console.log('Upgrade to', plan)
-    alert('Stripe integration coming soon!')
+  const handleUpgrade = async (plan: Plan) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const response = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, billingPeriod: 'monthly' }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setIsLoading(false)
+    }
   }
 
-  const handleManageSubscription = () => {
-    // TODO: Implement Stripe customer portal
-    console.log('Manage subscription')
-    alert('Stripe customer portal coming soon!')
+  const handleManageSubscription = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const response = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create portal session')
+      }
+
+      // Redirect to Stripe Customer Portal
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -73,10 +110,17 @@ export function SubscriptionCard({ currentPlan, stripeCustomerId }: Subscription
         <CardDescription>Manage your subscription and billing</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {error && (
+          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors -mt-2"
+          disabled={isLoading}
+          className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors -mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           <span className="font-medium">Click to manage subscription</span>
@@ -99,8 +143,12 @@ export function SubscriptionCard({ currentPlan, stripeCustomerId }: Subscription
               )}
             </div>
             {stripeCustomerId && currentPlan !== 'FREE' && (
-              <Button variant="outline" onClick={handleManageSubscription}>
-                Manage Billing
+              <Button 
+                variant="outline" 
+                onClick={handleManageSubscription}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Loading...' : 'Manage Billing'}
               </Button>
             )}
           </div>
@@ -152,8 +200,9 @@ export function SubscriptionCard({ currentPlan, stripeCustomerId }: Subscription
                       <Button 
                         onClick={() => handleUpgrade(plan)}
                         className="w-full"
+                        disabled={isLoading}
                       >
-                        Upgrade to {plan}
+                        {isLoading ? 'Loading...' : `Upgrade to ${plan}`}
                       </Button>
                     </div>
                   ))}
@@ -171,9 +220,10 @@ export function SubscriptionCard({ currentPlan, stripeCustomerId }: Subscription
                 <Button 
                   variant="ghost" 
                   onClick={handleManageSubscription}
+                  disabled={isLoading}
                   className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 >
-                  Manage Subscription
+                  {isLoading ? 'Loading...' : 'Manage Subscription'}
                 </Button>
               </div>
             )}
