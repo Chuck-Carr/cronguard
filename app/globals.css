@@ -3,8 +3,53 @@
 @variant dark (&:is(.dark *));
 
 :root {
+  /* Premium Color System */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #09090b;
+  
+  /* Brand Colors */
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 217 91% 55%;
+  
+  /* Semantic Colors */
+  --success: 142 76% 36%;
+  --success-light: 142 76% 96%;
+  --warning: 38 92% 50%;
+  --warning-light: 38 92% 96%;
+  --danger: 0 84% 60%;
+  --danger-light: 0 84% 96%;
+  
+  /* Neutral Grays */
+  --gray-50: 240 5% 98%;
+  --gray-100: 240 5% 96%;
+  --gray-200: 240 5% 90%;
+  --gray-300: 240 4% 80%;
+  --gray-400: 240 4% 60%;
+  --gray-500: 240 4% 46%;
+  --gray-600: 240 5% 34%;
+  --gray-700: 240 5% 26%;
+  --gray-800: 240 4% 16%;
+  --gray-900: 240 6% 10%;
+  --gray-950: 240 10% 4%;
+  
+  /* Surface Colors */
+  --surface: #ffffff;
+  --surface-elevated: #fafafa;
+  --border: #e4e4e7;
+  --border-light: #f4f4f5;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --gradient-dark: linear-gradient(180deg, #18181b 0%, #09090b 100%);
 }
 
 @theme inline {
@@ -15,19 +60,126 @@
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #09090b;
+  --foreground: #fafafa;
+  
+  /* Dark mode adjustments */
+  --surface: #18181b;
+  --surface-elevated: #27272a;
+  --border: #27272a;
+  --border-light: #3f3f46;
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #09090b;
+    --foreground: #fafafa;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus visible */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--gray-300));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--gray-400));
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--gray-700));
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--gray-600));
+}
+
+/* Animations */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.3s ease-out;
+}
+
+.animate-slide-in-down {
+  animation: slide-in-down 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
 }

@@ -36,6 +36,15 @@ export function DashboardNav({ user }: NavProps) {
       )
     },
     { 
+      href: '/dashboard/integrations', 
+      label: 'Integrations',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      )
+    },
+    { 
       href: '/dashboard/settings', 
       label: 'Settings',
       icon: (
@@ -55,52 +64,72 @@ export function DashboardNav({ user }: NavProps) {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-900">
+    <div className="flex h-screen bg-gradient-to-br from-zinc-50 to-white dark:from-zinc-950 dark:to-zinc-900">
       {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 flex flex-col">
-        <div className="p-6">
-          <Link href="/dashboard" className="text-2xl font-bold text-zinc-900 dark:text-white">
-            TaskAlive
+      <aside className="w-72 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-r border-zinc-200/50 dark:border-zinc-800/50 flex flex-col shadow-xl">
+        {/* Logo */}
+        <div className="p-6 border-b border-zinc-200/50 dark:border-zinc-800/50">
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300 group-hover:scale-105">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
+              TaskAlive
+            </span>
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-6 space-y-2">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`
-                flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200
                 ${isActive(item.href)
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:scale-[1.02]'
                 }
               `}
             >
-              {item.icon}
+              <span className={isActive(item.href) ? '' : 'group-hover:scale-110 transition-transform'}>
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-700">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm">
-              <div className="text-zinc-900 dark:text-white font-medium truncate">
-                {user.email}
+        {/* User Section */}
+        <div className="p-4 border-t border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-950/50">
+          <div className="mb-4 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                  {user.email}
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    {user.plan} Plan
+                  </span>
+                </div>
               </div>
-              <div className="text-zinc-500 dark:text-zinc-400 text-xs">
-                {user.plan} Plan
-              </div>
+              <ThemeToggle />
             </div>
-            <ThemeToggle />
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="w-full"
+            className="w-full group"
           >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+            </svg>
             Sign Out
           </Button>
         </div>
