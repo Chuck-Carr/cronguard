@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get CronGuard running in under 20 minutes.
+Get TaskAlive running in under 20 minutes.
 
 ## Step 1: Database Setup (5 min)
 
@@ -20,10 +20,10 @@ brew install postgresql@16
 brew services start postgresql@16
 
 # Create database
-createdb cronguard
+createdb taskalive
 
 # Update .env
-DATABASE_URL="postgresql://localhost:5432/cronguard"
+DATABASE_URL="postgresql://localhost:5432/taskalive"
 ```
 
 ## Step 2: Generate Auth Secret (30 sec)
@@ -37,7 +37,7 @@ Copy the output and paste it into `.env` as `NEXTAUTH_SECRET`
 ## Step 3: Run Migrations (2 min)
 
 ```bash
-cd ~/Projects/cronguard-app
+cd ~/Projects/taskalive-app
 npx prisma migrate dev --name init
 npx prisma generate
 ```

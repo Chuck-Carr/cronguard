@@ -1,10 +1,10 @@
-# CronGuard
+# TaskAlive
 
 A simple, affordable cron job monitoring service built with Next.js 14, Prisma, and PostgreSQL.
 
 ## Project Overview
 
-CronGuard is a SaaS application that monitors scheduled tasks (cron jobs) and alerts users when jobs fail or don't run on schedule. It's designed to be a cheaper, simpler alternative to services like Cronitor.
+TaskAlive is a SaaS application that monitors scheduled tasks (cron jobs) and alerts users when jobs fail or don't run on schedule. It's designed to be a cheaper, simpler alternative to services like Cronitor.
 
 See `PLAN.md` for the complete project breakdown and roadmap.
 
@@ -30,7 +30,7 @@ See `PLAN.md` for the complete project breakdown and roadmap.
 
 1. Clone and navigate to the project:
 ```bash
-cd ~/Projects/cronguard-app
+cd ~/Projects/taskalive-app
 ```
 
 2. Install dependencies:
@@ -63,7 +63,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 ## Project Structure
 
 ```
-cronguard-app/
+taskalive-app/
 ├── app/
 │   ├── api/
 │   │   ├── auth/          # Authentication endpoints

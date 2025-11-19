@@ -1,4 +1,4 @@
-# CronGuard - Cron Job Monitoring Service
+# TaskAlive - Cron Job Monitoring Service
 
 ## Project Overview
 A simpler, cheaper alternative to Cronitor for monitoring scheduled tasks and cron jobs.

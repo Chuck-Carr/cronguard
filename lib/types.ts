@@ -12,6 +12,8 @@ export interface User {
   plan: Plan
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
+  resetToken: string | null
+  resetTokenExpiry: Date | null
   createdAt: Date
   updatedAt: Date
 }

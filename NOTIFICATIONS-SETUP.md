@@ -47,7 +47,7 @@ FROM_EMAIL="alerts@yourdomain.com"  # Or use resend's test email
 3. Choose channel, copy webhook URL
 
 ### For You (Developer)
-No setup needed! Webhooks are just HTTP POST requests. Users paste their webhook URLs into CronGuard.
+No setup needed! Webhooks are just HTTP POST requests. Users paste their webhook URLs into TaskAlive.
 
 ## 4. Test It
 

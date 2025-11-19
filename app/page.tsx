@@ -9,7 +9,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="text-2xl font-bold text-zinc-900 dark:text-white">
-              CronGuard
+              TaskAlive
             </div>
             <div className="flex items-center gap-4">
               <ThemeToggle />
@@ -64,7 +64,7 @@ export default function Home() {
             </div>
             <div className="bg-zinc-950 rounded p-4 font-mono text-sm">
               <div className="text-zinc-500"># Add to your crontab</div>
-              <div className="text-green-400 mt-2">0 2 * * * /scripts/backup.sh && curl https://cronguard.app/ping/abc123</div>
+              <div className="text-green-400 mt-2">0 2 * * * /scripts/backup.sh && curl https://taskalive.io/ping/abc123</div>
             </div>
           </div>
         </div>
@@ -249,7 +249,7 @@ export default function Home() {
       <footer className="border-t border-zinc-200 dark:border-zinc-800 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-            <p>© 2025 CronGuard. Simple cron job monitoring.</p>
+            <p>© 2025 TaskAlive. Simple cron job monitoring.</p>
           </div>
         </div>
       </footer>

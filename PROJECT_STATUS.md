@@ -1,8 +1,8 @@
-# CronGuard - Project Status
+# TaskAlive - Project Status
 
 **Created:** 2025-11-17  
 **Status:** MVP Backend Complete - Ready for UI Development  
-**Location:** `~/Projects/cronguard-app`
+**Location:** `~/Projects/taskalive-app`
 
 ## What's Built ✅
 
@@ -48,7 +48,7 @@
 ## File Structure
 
 ```
-cronguard-app/
+taskalive-app/
 ├── Documentation
 │   ├── PLAN.md              # Complete project breakdown
 │   ├── NEXT_STEPS.md        # 4-week roadmap to launch
@@ -170,7 +170,7 @@ cronguard-app/
 | Cronitor | $10/mo (10 monitors) | Cheaper ($5 for 20) |
 | Healthchecks.io | $7/mo | Simpler UX |
 | Better Uptime | $20/mo | Much cheaper |
-| **CronGuard** | **$5/mo (20 monitors)** | **Best value** |
+| **TaskAlive** | **$5/mo (20 monitors)** | **Best value** |
 
 ## Launch Strategy
 

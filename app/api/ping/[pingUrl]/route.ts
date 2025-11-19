@@ -55,22 +55,21 @@ async function handlePing(
                       req.headers.get("x-real-ip") || 
                       "unknown"
 
-    // Update monitor and create ping in transaction
-    await sql.begin(async sql => {
-      await sql`
-        UPDATE "Monitor"
-        SET status = 'HEALTHY',
-            "lastPingAt" = ${now},
-            "nextExpectedPingAt" = ${nextExpectedPingAt},
-            "updatedAt" = NOW()
-        WHERE id = ${monitor.id}
-      `
-      
-      await sql`
-        INSERT INTO "Ping" (id, "monitorId", "pingedAt", message, "ipAddress", "createdAt")
-        VALUES (${randomUUID()}, ${monitor.id}, ${now}, ${message || null}, ${ipAddress}, NOW())
-      `
-    })
+    // Update monitor
+    await sql`
+      UPDATE "Monitor"
+      SET status = 'HEALTHY',
+          "lastPingAt" = ${now},
+          "nextExpectedPingAt" = ${nextExpectedPingAt},
+          "updatedAt" = NOW()
+      WHERE id = ${monitor.id}
+    `
+    
+    // Create ping record
+    await sql`
+      INSERT INTO "Ping" (id, "monitorId", "pingedAt", message, "ipAddress", "createdAt")
+      VALUES (${randomUUID()}, ${monitor.id}, ${now}, ${message || null}, ${ipAddress}, NOW())
+    `
 
     return NextResponse.json({
       success: true,

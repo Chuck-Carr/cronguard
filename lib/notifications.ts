@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { AlertType } from './types'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const fromEmail = process.env.FROM_EMAIL || 'alerts@cronguard.app'
+const fromEmail = process.env.FROM_EMAIL || 'alerts@taskalive.io'
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 interface Monitor {
@@ -89,7 +89,7 @@ export async function sendEmailAlert(
                 <a href="${monitorUrl}" class="button">View Monitor Details</a>
                 
                 <p style="margin-top: 24px; font-size: 14px; color: #6b7280;">
-                  This is an automated alert from CronGuard.
+                  This is an automated alert from TaskAlive.
                 </p>
               </div>
             </div>
@@ -144,7 +144,7 @@ export async function sendDiscordWebhook(
           ],
           timestamp: new Date().toISOString(),
           footer: {
-            text: 'CronGuard'
+            text: 'TaskAlive'
           },
           url: monitorUrl
         }]

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CronGuard - Simple Cron Job Monitoring",
+  title: "TaskAlive - Simple Cron Job Monitoring",
   description: "Monitor your scheduled tasks and cron jobs. Get instant alerts when jobs fail or don't run on time.",
 };
 

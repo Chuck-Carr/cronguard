@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { sql } from "@/lib/db"
-import { User } from "@/lib/types"
+import { User, Plan } from "@/lib/types"
 import bcrypt from "bcryptjs"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -52,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
-        session.user.plan = token.plan as string
+        session.user.plan = token.plan as Plan
       }
       return session
     },

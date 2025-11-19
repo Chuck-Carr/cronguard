@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-CronGuard is a SaaS cron job monitoring service built as a cheaper alternative to Cronitor. Users create monitors, get unique ping URLs, and receive alerts when their scheduled tasks fail or don't run on time. The project is designed for low operational costs with a focus on indie developer-friendly pricing.
+TaskAlive is a SaaS cron job monitoring service built as a cheaper alternative to Cronitor. Users create monitors, get unique ping URLs, and receive alerts when their scheduled tasks fail or don't run on time. The project is designed for low operational costs with a focus on indie developer-friendly pricing.
 
 **Tech Stack:** Next.js 14 (App Router), Prisma ORM, PostgreSQL (Supabase), NextAuth.js v5, Tailwind CSS, TypeScript
 

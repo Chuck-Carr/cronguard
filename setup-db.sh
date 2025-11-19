@@ -5,7 +5,7 @@ if [ -f .env ]; then
     export $(grep -v '^#' .env | xargs)
 fi
 
-echo "🚀 CronGuard Database Setup"
+echo "🚀 TaskAlive Database Setup"
 echo ""
 
 # Check if DATABASE_URL is set
