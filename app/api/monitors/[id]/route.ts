@@ -122,7 +122,9 @@ export async function PATCH(
     RETURNING *
   `
   
-  const [updated] = await sql.unsafe<Monitor[]>(queryText, [...values, id])
+  const [updated] = await sql.unsafe<Monitor[]>(queryText, 
+    [...values, id] as unknown as any[]
+  );
 
   return NextResponse.json({ monitor: updated })
 }
