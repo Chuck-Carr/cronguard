@@ -1,16 +1,16 @@
 import { auth } from '@/auth'
 import { sql } from '@/lib/db'
 import { Monitor, User, MonitorStatus } from '@/lib/types'
-import { formatDateTime } from '@/lib/date-utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { getPlanLimits } from '@/lib/plan-limits'
 import { AutoRefresh } from '@/components/dashboard/auto-refresh'
+import { MonitorList } from '@/components/dashboard/monitor-list'
 
 interface MonitorsPageProps {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{ status?: string; tag?: string }>
 }
 
 export default async function MonitorsPage({ searchParams }: MonitorsPageProps) {
@@ -22,6 +22,8 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
 
   const params = await searchParams
   const statusFilter = params.status as MonitorStatus | undefined
+  const tagFilter = params.tag
+  const tagFilters = tagFilter ? (Array.isArray(tagFilter) ? tagFilter : [tagFilter]) : []
 
   const [monitors, [user]] = await Promise.all([
     sql<(Monitor & { pingCount: number, alertCount: number })[]>`
@@ -55,26 +57,21 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
     monitorsWithCount = monitorsWithCount.filter(m => m.status === statusFilter)
   }
 
+  // Filter by tags if specified (monitors must have ALL selected tags)
+  if (tagFilters.length > 0) {
+    monitorsWithCount = monitorsWithCount.filter(m => 
+      m.tags && tagFilters.every(tag => m.tags.includes(tag))
+    )
+  }
+
+  // Get all unique tags for filter options
+  const allTags = Array.from(new Set(monitors.flatMap(m => m.tags || []))).sort()
+
   const planLimits = getPlanLimits(user!.plan)
   const canCreateMore = planLimits.monitors === -1 || user!.monitorCount < planLimits.monitors
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'HEALTHY': return 'bg-green-500'
-      case 'LATE': return 'bg-yellow-500'
-      case 'FAILED': return 'bg-red-500'
-      default: return 'bg-zinc-500'
-    }
-  }
-
-  const formatInterval = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
-    return `${Math.floor(seconds / 86400)}d`
-  }
-
   const getFilterTitle = () => {
+    if (tagFilters.length > 0) return `Tagged: ${tagFilters.join(' + ')}`
     if (!statusFilter) return 'All Monitors'
     return `${statusFilter.charAt(0) + statusFilter.slice(1).toLowerCase()} Monitors`
   }
@@ -88,12 +85,13 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
             <h1 className="text-4xl font-black text-zinc-900 dark:text-white tracking-tight">
               {getFilterTitle()}
             </h1>
-            {statusFilter && (
+            {(statusFilter || tagFilters.length > 0) && (
               <Badge 
                 variant={
                   statusFilter === 'HEALTHY' ? 'success' :
                   statusFilter === 'LATE' ? 'warning' :
-                  'danger'
+                  statusFilter === 'FAILED' ? 'danger' :
+                  'default'
                 }
                 size="lg"
               >
@@ -105,7 +103,7 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
             <p className="text-zinc-600 dark:text-zinc-400">
               {user!.monitorCount} of {planLimits.monitors === -1 ? '∞' : planLimits.monitors} monitors used
             </p>
-            {statusFilter && (
+            {(statusFilter || tagFilters.length > 0) && (
               <>
                 <span className="text-zinc-400">•</span>
                 <Link 
@@ -131,6 +129,35 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
           </Button>
         )}
       </div>
+
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Filter by tag:</span>
+          {allTags.map(tag => {
+            const isSelected = tagFilters.includes(tag)
+            const newTagFilters = isSelected
+              ? tagFilters.filter(t => t !== tag)
+              : [...tagFilters, tag]
+            const href = newTagFilters.length > 0
+              ? `/dashboard/monitors?${newTagFilters.map(t => `tag=${encodeURIComponent(t)}`).join('&')}`
+              : '/dashboard/monitors'
+            
+            return (
+              <Link
+                key={tag}
+                href={href}
+                className={`px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+                  isSelected
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                }`}
+              >
+                {tag}
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       {monitorsWithCount.length === 0 ? (
         <Card>
@@ -188,97 +215,7 @@ export default async function MonitorsPage({ searchParams }: MonitorsPageProps) 
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {monitorsWithCount.map((monitor) => (
-            <Link
-              key={monitor.id}
-              href={`/dashboard/monitors/${monitor.id}`}
-              className="block"
-            >
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      {/* Status Icon */}
-                      <div className="relative">
-                        {monitor.status === 'HEALTHY' && (
-                          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          </div>
-                        )}
-                        {monitor.status === 'LATE' && (
-                          <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                        )}
-                        {monitor.status === 'FAILED' && (
-                          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Monitor Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-base font-semibold text-zinc-900 dark:text-white truncate">
-                            {monitor.name}
-                          </h3>
-                          <span className={`
-                            px-2 py-0.5 text-xs font-medium rounded-full
-                            ${monitor.status === 'HEALTHY' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
-                            ${monitor.status === 'LATE' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
-                            ${monitor.status === 'FAILED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : ''}
-                          `}>
-                            {monitor.status}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
-                          <span>Every {formatInterval(monitor.intervalSeconds)}</span>
-                          <span>•</span>
-                          <span>
-                            {monitor.lastPingAt 
-                              ? `Last: ${formatDateTime(monitor.lastPingAt)} ET`
-                              : 'Never pinged'
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-6 text-sm">
-                      <div className="text-center">
-                        <div className="text-zinc-500 dark:text-zinc-400 text-xs mb-1">Pings</div>
-                        <div className="font-semibold text-zinc-900 dark:text-white">
-                          {monitor._count.pings}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-zinc-500 dark:text-zinc-400 text-xs mb-1">Alerts</div>
-                        <div className="font-semibold text-zinc-900 dark:text-white">
-                          {monitor._count.alerts}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Arrow */}
-                    <svg className="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                    </svg>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <MonitorList monitors={monitorsWithCount} tagFilters={tagFilters} />
       )}
     </div>
   )

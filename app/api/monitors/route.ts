@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { name, intervalSeconds, gracePeriodSeconds, slackWebhookUrl, discordWebhookUrl, teamsWebhookUrl, alertEmails } = body
+    const { name, intervalSeconds, gracePeriodSeconds, slackWebhookUrl, discordWebhookUrl, teamsWebhookUrl, alertEmails, tags, customDownMessage, customRecoveryMessage } = body
 
     if (!name || !intervalSeconds) {
       return NextResponse.json(
@@ -77,18 +77,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Validate and sanitize tags
+    const tagArray = Array.isArray(tags) ? tags.filter(t => typeof t === 'string' && t.trim().length > 0) : []
+
     const pingUrl = randomUUID().replace(/-/g, '').substring(0, 25)
     
     const [monitor] = await sql<Monitor[]>`
       INSERT INTO "Monitor" (
         id, "userId", name, "pingUrl", "intervalSeconds", "gracePeriodSeconds",
-        "slackWebhookUrl", "discordWebhookUrl", "teamsWebhookUrl", "alertEmails",
-        status, "createdAt", "updatedAt"
+        "slackWebhookUrl", "discordWebhookUrl", "teamsWebhookUrl", "alertEmails", tags,
+        "customDownMessage", "customRecoveryMessage",
+        paused, status, "createdAt", "updatedAt"
       )
       VALUES (
         ${randomUUID()}, ${user.id}, ${name}, ${pingUrl}, ${intervalSeconds}, ${gracePeriodSeconds || 300},
-        ${slackWebhookUrl || null}, ${discordWebhookUrl || null}, ${teamsWebhookUrl || null}, ${alertEmails || null},
-        'HEALTHY', NOW(), NOW()
+        ${slackWebhookUrl || null}, ${discordWebhookUrl || null}, ${teamsWebhookUrl || null}, ${alertEmails || null}, ${sql.array(tagArray)},
+        ${customDownMessage || null}, ${customRecoveryMessage || null},
+        false, 'HEALTHY', NOW(), NOW()
       )
       RETURNING *
     `

@@ -58,7 +58,7 @@ export default async function SettingsPage() {
                   ${user.plan === 'FREE' ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' : ''}
                   ${user.plan === 'STARTER' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : ''}
                   ${user.plan === 'PRO' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : ''}
-                  ${user.plan === 'BUSINESS' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : ''}
+                  ${user.plan === 'ENTERPRISE' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : ''}
                 `}>
                   {user.plan}
                 </span>

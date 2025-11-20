@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
 import { stripe } from '@/lib/stripe'
+import { User } from '@/lib/types'
 
 export async function POST() {
   try {
@@ -11,10 +12,10 @@ export async function POST() {
     }
 
     // Get user with Stripe customer ID
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { stripeCustomerId: true }
-    })
+    const [user] = await sql<Pick<User, 'stripeCustomerId'>[]>`
+      SELECT "stripeCustomerId" FROM "User"
+      WHERE id = ${session.user.id}
+    `
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })

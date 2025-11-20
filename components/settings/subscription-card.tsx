@@ -13,40 +13,41 @@ interface SubscriptionCardProps {
 
 const PLAN_PRICES = {
   FREE: { monthly: 0, yearly: 0 },
-  STARTER: { monthly: 9, yearly: 90 },
-  PRO: { monthly: 29, yearly: 290 },
-  BUSINESS: { monthly: 99, yearly: 990 },
+  STARTER: { monthly: 12, yearly: 120 },
+  PRO: { monthly: 39, yearly: 390 },
+  ENTERPRISE: { monthly: 119, yearly: 1190 },
 }
 
 const PLAN_FEATURES = {
   FREE: [
-    '3 monitors',
+    '5 monitors',
     '7 days history',
     'Email alerts',
+    'Pause/unpause',
+    'Tags/grouping',
   ],
   STARTER: [
     '20 monitors',
     '30 days history',
     'Email alerts',
-    'Slack & Discord webhooks',
-    'Instant alerts',
+    'Webhook alerts (Slack, Discord, Teams)',
+    'Custom alert messages',
+    'Pause/unpause',
+    'Tags/grouping',
   ],
   PRO: [
     '100 monitors',
     '90 days history',
-    'Email alerts',
-    'All webhooks (Slack, Discord, Teams)',
+    'Everything in Starter',
     'SMS alerts',
-    'Instant alerts',
+    'Priority support',
   ],
-  BUSINESS: [
+  ENTERPRISE: [
     'Unlimited monitors',
     '365 days history',
-    'Email alerts',
-    'All webhooks',
-    'SMS alerts',
-    'Instant alerts',
-    'Priority support',
+    'Everything in Pro',
+    'SLA guarantees',
+    'Dedicated support',
   ],
 }
 
@@ -155,16 +156,16 @@ export function SubscriptionCard({ currentPlan, stripeCustomerId }: Subscription
         </div>
 
         {/* Available Plans */}
-        {currentPlan !== 'BUSINESS' && (
+        {currentPlan !== 'ENTERPRISE' && (
           <>
             <div>
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-4">
                 Upgrade Your Plan
               </h3>
               <div className="grid md:grid-cols-2 gap-4">
-                {(['STARTER', 'PRO', 'BUSINESS'] as Plan[])
+                {(['STARTER', 'PRO', 'ENTERPRISE'] as Plan[])
                   .filter(plan => {
-                    const planOrder = { FREE: 0, STARTER: 1, PRO: 2, BUSINESS: 3 }
+                    const planOrder = { FREE: 0, STARTER: 1, PRO: 2, ENTERPRISE: 3 }
                     return planOrder[plan] > planOrder[currentPlan]
                   })
                   .map(plan => (

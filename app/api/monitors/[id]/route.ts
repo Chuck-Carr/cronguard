@@ -65,7 +65,7 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, intervalSeconds, gracePeriodSeconds, slackWebhookUrl, discordWebhookUrl, teamsWebhookUrl, alertEmails } = body
+  const { name, intervalSeconds, gracePeriodSeconds, slackWebhookUrl, discordWebhookUrl, teamsWebhookUrl, alertEmails, paused, tags, customDownMessage, customRecoveryMessage } = body
 
   // Verify monitor belongs to user
   const [monitor] = await sql<Monitor[]>`
@@ -77,21 +77,52 @@ export async function PATCH(
     return NextResponse.json({ error: 'Monitor not found' }, { status: 404 })
   }
 
-  // Update monitor (convert empty strings to null)
-  const [updated] = await sql<Monitor[]>`
+  // Validate and sanitize tags if provided
+  const tagArray = Array.isArray(tags) ? tags.filter((t: unknown) => typeof t === 'string' && t.trim().length > 0) : undefined
+
+  // Only update fields that are provided
+  const updates: Record<string, unknown> = {}
+  
+  if (name !== undefined) updates.name = name
+  if (intervalSeconds !== undefined) updates.intervalSeconds = intervalSeconds
+  if (gracePeriodSeconds !== undefined) updates.gracePeriodSeconds = gracePeriodSeconds
+  if (slackWebhookUrl !== undefined) updates.slackWebhookUrl = slackWebhookUrl || null
+  if (discordWebhookUrl !== undefined) updates.discordWebhookUrl = discordWebhookUrl || null
+  if (teamsWebhookUrl !== undefined) updates.teamsWebhookUrl = teamsWebhookUrl || null
+  if (alertEmails !== undefined) updates.alertEmails = alertEmails || null
+  if (customDownMessage !== undefined) updates.customDownMessage = customDownMessage || null
+  if (customRecoveryMessage !== undefined) updates.customRecoveryMessage = customRecoveryMessage || null
+  if (paused !== undefined) {
+    updates.paused = paused
+    updates.pausedAt = paused ? new Date() : null
+  }
+  if (tagArray !== undefined) updates.tags = tagArray
+  
+  // Build the SET clause dynamically
+  const setClause = Object.keys(updates)
+    .map(key => {
+      const dbKey = key === 'intervalSeconds' || key === 'gracePeriodSeconds' || 
+                    key === 'slackWebhookUrl' || key === 'discordWebhookUrl' || 
+                    key === 'teamsWebhookUrl' || key === 'alertEmails' || key === 'pausedAt' ||
+                    key === 'customDownMessage' || key === 'customRecoveryMessage'
+        ? `"${key}"`
+        : key
+      return `${dbKey} = $${Object.keys(updates).indexOf(key) + 1}`
+    })
+    .concat('"updatedAt" = NOW()')
+    .join(', ')
+  
+  const values = Object.values(updates)
+
+  // Update monitor using unsafe with manual parameter binding
+  const queryText = `
     UPDATE "Monitor"
-    SET 
-      name = COALESCE(${name}, name),
-      "intervalSeconds" = COALESCE(${intervalSeconds}, "intervalSeconds"),
-      "gracePeriodSeconds" = COALESCE(${gracePeriodSeconds}, "gracePeriodSeconds"),
-      "slackWebhookUrl" = ${slackWebhookUrl !== undefined ? (slackWebhookUrl || null) : sql`"slackWebhookUrl"`},
-      "discordWebhookUrl" = ${discordWebhookUrl !== undefined ? (discordWebhookUrl || null) : sql`"discordWebhookUrl"`},
-      "teamsWebhookUrl" = ${teamsWebhookUrl !== undefined ? (teamsWebhookUrl || null) : sql`"teamsWebhookUrl"`},
-      "alertEmails" = ${alertEmails !== undefined ? (alertEmails || null) : sql`"alertEmails"`},
-      "updatedAt" = NOW()
-    WHERE id = ${id}
+    SET ${setClause}
+    WHERE id = $${values.length + 1}
     RETURNING *
   `
+  
+  const [updated] = await sql.unsafe<Monitor[]>(queryText, [...values, id])
 
   return NextResponse.json({ monitor: updated })
 }

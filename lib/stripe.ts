@@ -12,6 +12,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 // TODO: After creating products in Stripe Dashboard, replace these with actual price IDs
 // Create products at: https://dashboard.stripe.com/test/products
+// Pricing: STARTER $12/mo, PRO $39/mo, ENTERPRISE $119/mo
 export const STRIPE_PRICE_IDS = {
   STARTER: {
     monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY || 'price_starter_monthly_placeholder',
@@ -21,9 +22,9 @@ export const STRIPE_PRICE_IDS = {
     monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || 'price_pro_monthly_placeholder',
     yearly: process.env.STRIPE_PRICE_PRO_YEARLY || 'price_pro_yearly_placeholder',
   },
-  BUSINESS: {
-    monthly: process.env.STRIPE_PRICE_BUSINESS_MONTHLY || 'price_business_monthly_placeholder',
-    yearly: process.env.STRIPE_PRICE_BUSINESS_YEARLY || 'price_business_yearly_placeholder',
+  ENTERPRISE: {
+    monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || 'price_enterprise_monthly_placeholder',
+    yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || 'price_enterprise_yearly_placeholder',
   },
 }
 

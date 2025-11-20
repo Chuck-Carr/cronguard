@@ -10,6 +10,8 @@ interface Monitor {
   name: string
   lastPingAt: Date | null
   intervalSeconds: number
+  customDownMessage?: string | null
+  customRecoveryMessage?: string | null
 }
 
 interface User {
@@ -31,6 +33,12 @@ export async function sendEmailAlert(
   const subject = isDown 
     ? `🚨 Monitor Down: ${monitor.name}`
     : `✅ Monitor Recovered: ${monitor.name}`
+
+  const customMessage = isDown ? monitor.customDownMessage : monitor.customRecoveryMessage
+  const defaultMessage = isDown
+    ? 'Your monitor has not received a ping within the expected interval and grace period.'
+    : 'Your monitor has received a ping and is now back online.'
+  const message = customMessage || defaultMessage
 
   const monitorUrl = `${appUrl}/dashboard/monitors/${monitor.id}`
   
@@ -62,10 +70,7 @@ export async function sendEmailAlert(
               </div>
               <div class="content">
                 <h2 style="margin-top: 0;">${monitor.name}</h2>
-                <p>${isDown 
-                  ? 'Your monitor has not received a ping within the expected interval and grace period.' 
-                  : 'Your monitor has received a ping and is now back online.'
-                }</p>
+                <p>${message}</p>
                 
                 <div class="details">
                   <div class="detail-row">
@@ -112,6 +117,11 @@ export async function sendDiscordWebhook(
   alertType: AlertType
 ) {
   const isDown = alertType === 'DOWN'
+  const customMessage = isDown ? monitor.customDownMessage : monitor.customRecoveryMessage
+  const defaultDescription = isDown
+    ? 'Your monitor has not received a ping within the expected interval.'
+    : 'Your monitor has received a ping and is back online.'
+  const description = customMessage ? `${customMessage}\n\n**${monitor.name}**` : `**${monitor.name}**\n${defaultDescription}`
   const monitorUrl = `${appUrl}/dashboard/monitors/${monitor.id}`
   
   try {
@@ -121,7 +131,7 @@ export async function sendDiscordWebhook(
       body: JSON.stringify({
         embeds: [{
           title: isDown ? '🚨 Monitor Down' : '✅ Monitor Recovered',
-          description: `**${monitor.name}**`,
+          description,
           color: isDown ? 0xdc2626 : 0x16a34a, // Red or Green
           fields: [
             {
@@ -165,6 +175,7 @@ export async function sendSlackWebhook(
   alertType: AlertType
 ) {
   const isDown = alertType === 'DOWN'
+  const customMessage = isDown ? monitor.customDownMessage : monitor.customRecoveryMessage
   const monitorUrl = `${appUrl}/dashboard/monitors/${monitor.id}`
   
   try {
@@ -183,6 +194,15 @@ export async function sendSlackWebhook(
               text: isDown ? '🚨 Monitor Down' : '✅ Monitor Recovered'
             }
           },
+          ...(customMessage ? [
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: customMessage
+              }
+            }
+          ] : []),
           {
             type: 'section',
             fields: [
@@ -235,6 +255,11 @@ export async function sendTeamsWebhook(
   alertType: AlertType
 ) {
   const isDown = alertType === 'DOWN'
+  const customMessage = isDown ? monitor.customDownMessage : monitor.customRecoveryMessage
+  const defaultMessage = isDown
+    ? 'Your monitor has not received a ping within the expected interval and grace period.'
+    : 'Your monitor has received a ping and is now back online.'
+  const message = customMessage || defaultMessage
   const monitorUrl = `${appUrl}/dashboard/monitors/${monitor.id}`
   
   try {
@@ -268,9 +293,7 @@ export async function sendTeamsWebhook(
                 "value": `Every ${formatInterval(monitor.intervalSeconds)}`
               }
             ],
-            "text": isDown
-              ? "Your monitor has not received a ping within the expected interval and grace period."
-              : "Your monitor has received a ping and is now back online."
+            "text": message
           }
         ],
         "potentialAction": [

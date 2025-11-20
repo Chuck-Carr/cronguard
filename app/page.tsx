@@ -91,7 +91,7 @@ export default function Home() {
             <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            Free plan includes 3 monitors • No credit card required
+            Free plan includes 5 monitors • No credit card required
           </p>
         </div>
 
@@ -273,30 +273,30 @@ export default function Home() {
               { 
                 name: 'Free', 
                 price: '$0', 
-                monitors: '3 monitors', 
-                features: ['7-day history', 'Email alerts', 'Delayed notifications'],
+                monitors: '5 monitors', 
+                features: ['7-day history', 'Email alerts', 'Pause/unpause', 'Tags/grouping'],
                 cta: 'Start Free'
               },
               { 
                 name: 'Starter', 
-                price: '$7', 
+                price: '$12', 
                 monitors: '20 monitors', 
-                features: ['30-day history', 'Instant alerts', 'Webhooks (Slack/Discord/Teams)'],
+                features: ['30-day history', 'Webhooks (Slack/Discord/Teams)', 'Custom alert messages'],
                 cta: 'Get Started',
                 popular: true
               },
               { 
                 name: 'Pro', 
-                price: '$19', 
+                price: '$39', 
                 monitors: '100 monitors', 
-                features: ['90-day history', 'SMS alerts', 'Priority support'],
+                features: ['90-day history', 'Everything in Starter', 'SMS alerts', 'Priority support'],
                 cta: 'Get Started'
               },
               { 
-                name: 'Business', 
-                price: '$49', 
+                name: 'Enterprise', 
+                price: '$119', 
                 monitors: 'Unlimited', 
-                features: ['1-year history', 'Priority support', 'SLA guarantees'],
+                features: ['365-day history', 'Everything in Pro', 'SLA guarantees', 'Dedicated support'],
                 cta: 'Contact Us'
               },
             ].map((plan) => (

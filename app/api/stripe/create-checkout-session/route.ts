@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { sql } from '@/lib/db'
 import { stripe, getPriceId } from '@/lib/stripe'
-import { Plan } from '@/lib/types'
+import { Plan, User } from '@/lib/types'
 
-const PLAN_ORDER = { FREE: 0, STARTER: 1, PRO: 2, BUSINESS: 3 }
+const PLAN_ORDER = { FREE: 0, STARTER: 1, PRO: 2, ENTERPRISE: 3 }
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!['STARTER', 'PRO', 'BUSINESS'].includes(plan)) {
+    if (!['STARTER', 'PRO', 'ENTERPRISE'].includes(plan)) {
       return NextResponse.json(
-        { error: 'Invalid plan. Must be STARTER, PRO, or BUSINESS' },
+        { error: 'Invalid plan. Must be STARTER, PRO, or ENTERPRISE' },
         { status: 400 }
       )
     }
@@ -42,10 +42,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user and check if upgrade is valid
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { id: true, email: true, plan: true, stripeCustomerId: true }
-    })
+    const [user] = await sql<Pick<User, 'id' | 'email' | 'plan' | 'stripeCustomerId'>[]>`
+      SELECT id, email, plan, "stripeCustomerId"
+      FROM "User"
+      WHERE id = ${session.user.id}
+    `
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })

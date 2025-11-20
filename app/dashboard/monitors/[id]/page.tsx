@@ -127,15 +127,29 @@ export default async function MonitorDetailPage({ params }: MonitorDetailPagePro
               <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">
                 {monitorWithData.name}
               </h1>
-              <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadgeColor(monitorWithData.status)}`}>
-                {monitorWithData.status}
-              </span>
+              {monitorWithData.paused ? (
+                <span className="px-2 py-1 text-xs font-medium rounded bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                  PAUSED
+                </span>
+              ) : (
+                <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusBadgeColor(monitorWithData.status)}`}>
+                  {monitorWithData.status}
+                </span>
+              )}
+              {monitorWithData.tags && monitorWithData.tags.length > 0 && monitorWithData.tags.map((tag: string) => (
+                <span key={tag} className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  {tag}
+                </span>
+              ))}
             </div>
             <p className="text-zinc-600 dark:text-zinc-400 mt-1">
               Created {formatDate(monitorWithData.createdAt)} ET
+              {monitorWithData.paused && monitorWithData.pausedAt && (
+                <span> • Paused {formatDate(monitorWithData.pausedAt)} ET</span>
+              )}
             </p>
           </div>
-          <MonitorActions monitorId={monitorWithData.id} monitorName={monitorWithData.name} />
+          <MonitorActions monitorId={monitorWithData.id} monitorName={monitorWithData.name} isPaused={monitorWithData.paused} />
         </div>
       </div>
 

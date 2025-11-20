@@ -1,7 +1,8 @@
-const { PrismaClient } = require('@prisma/client')
+const postgres = require('postgres')
 const bcrypt = require('bcryptjs')
+const { randomBytes } = require('crypto')
 
-const prisma = new PrismaClient()
+const sql = postgres(process.env.DATABASE_URL)
 
 async function main() {
   console.log('🚀 Setting up test user and monitor...\n')
@@ -11,16 +12,14 @@ async function main() {
   const password = 'password123'
   const passwordHash = await bcrypt.hash(password, 10)
 
-  let user = await prisma.user.findUnique({ where: { email } })
+  let [user] = await sql`SELECT * FROM "User" WHERE email = ${email}`
   
   if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        plan: 'FREE',
-      },
-    })
+    [user] = await sql`
+      INSERT INTO "User" (email, "passwordHash", plan, "createdAt", "updatedAt")
+      VALUES (${email}, ${passwordHash}, 'FREE', NOW(), NOW())
+      RETURNING *
+    `
     console.log('✅ Test user created:')
     console.log(`   Email: ${email}`)
     console.log(`   Password: ${password}\n`)
@@ -29,15 +28,30 @@ async function main() {
   }
 
   // Create test monitor
-  const monitor = await prisma.monitor.create({
-    data: {
-      userId: user.id,
-      name: 'Test Cron Job',
-      intervalSeconds: 60, // Check every minute
-      gracePeriodSeconds: 30, // 30 second grace period
-      status: 'HEALTHY',
-    },
-  })
+  const pingUrl = randomBytes(16).toString('hex')
+  
+  const [monitor] = await sql`
+    INSERT INTO "Monitor" (
+      "userId",
+      name,
+      "intervalSeconds",
+      "gracePeriodSeconds",
+      status,
+      "pingUrl",
+      "createdAt",
+      "updatedAt"
+    ) VALUES (
+      ${user.id},
+      'Test Cron Job',
+      60,
+      30,
+      'HEALTHY',
+      ${pingUrl},
+      NOW(),
+      NOW()
+    )
+    RETURNING *
+  `
 
   console.log('✅ Test monitor created:')
   console.log(`   Name: ${monitor.name}`)
@@ -59,5 +73,5 @@ main()
     process.exit(1)
   })
   .finally(async () => {
-    await prisma.$disconnect()
+    await sql.end()
   })

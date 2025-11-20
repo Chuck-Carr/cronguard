@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import Stripe from 'stripe'
 import { stripe, getPlanFromPriceId } from '@/lib/stripe'
-import { prisma } from '@/lib/prisma'
-import { Plan } from '@/lib/types'
+import { sql } from '@/lib/db'
+import { Plan, User } from '@/lib/types'
 
 // Disable body parsing - we need raw body for webhook signature verification
 export const runtime = 'nodejs'
@@ -136,14 +136,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   // Update user with Stripe customer ID, subscription ID, and plan
   try {
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        stripeCustomerId: customerId,
-        stripeSubscriptionId: subscriptionId,
-        plan: plan,
-      },
-    })
+    const [updatedUser] = await sql<User[]>`
+      UPDATE "User"
+      SET "stripeCustomerId" = ${customerId},
+          "stripeSubscriptionId" = ${subscriptionId},
+          plan = ${plan}
+      WHERE id = ${userId}
+      RETURNING *
+    `
     console.log('✅ User updated successfully:', updatedUser.email, updatedUser.plan)
   } catch (error) {
     console.error('❌ Error updating user:', error)
@@ -157,9 +157,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string
 
   // Find user by Stripe customer ID
-  const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
-  })
+  const [user] = await sql<User[]>`
+    SELECT * FROM "User" WHERE "stripeCustomerId" = ${customerId}
+  `
 
   if (!user) {
     console.error(`No user found for Stripe customer ${customerId}`)
@@ -184,13 +184,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     plan = 'FREE'
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      plan: plan,
-      stripeSubscriptionId: subscription.id,
-    },
-  })
+  await sql`
+    UPDATE "User"
+    SET plan = ${plan},
+        "stripeSubscriptionId" = ${subscription.id}
+    WHERE id = ${user.id}
+  `
 
   console.log(`Subscription updated: User ${user.id} plan set to ${plan} (status: ${subscription.status})`)
 }
@@ -199,9 +198,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const customerId = subscription.customer as string
 
   // Find user by Stripe customer ID
-  const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
-  })
+  const [user] = await sql<User[]>`
+    SELECT * FROM "User" WHERE "stripeCustomerId" = ${customerId}
+  `
 
   if (!user) {
     console.error(`No user found for Stripe customer ${customerId}`)
@@ -209,13 +208,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   }
 
   // Downgrade user to FREE plan when subscription is deleted
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      plan: 'FREE',
-      stripeSubscriptionId: null,
-    },
-  })
+  await sql`
+    UPDATE "User"
+    SET plan = 'FREE',
+        "stripeSubscriptionId" = NULL
+    WHERE id = ${user.id}
+  `
 
   console.log(`Subscription deleted: User ${user.id} downgraded to FREE`)
 }

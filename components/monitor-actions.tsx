@@ -7,12 +7,34 @@ import { Button } from '@/components/ui/button'
 interface MonitorActionsProps {
   monitorId: string
   monitorName: string
+  isPaused: boolean
 }
 
-export function MonitorActions({ monitorId, monitorName }: MonitorActionsProps) {
+export function MonitorActions({ monitorId, monitorName, isPaused }: MonitorActionsProps) {
   const router = useRouter()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isPausing, setIsPausing] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  const handlePauseToggle = async () => {
+    setIsPausing(true)
+    try {
+      const res = await fetch(`/api/monitors/${monitorId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paused: !isPaused }),
+      })
+
+      if (res.ok) {
+        router.refresh()
+      } else {
+        alert('Failed to ' + (isPaused ? 'unpause' : 'pause') + ' monitor')
+      }
+    } catch (error) {
+      alert('An error occurred')
+    }
+    setIsPausing(false)
+  }
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -36,6 +58,29 @@ export function MonitorActions({ monitorId, monitorName }: MonitorActionsProps) 
 
   return (
     <div className="flex gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handlePauseToggle}
+        isLoading={isPausing}
+      >
+        {isPaused ? (
+          <>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            Unpause
+          </>
+        ) : (
+          <>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+            </svg>
+            Pause
+          </>
+        )}
+      </Button>
+
       <Button
         variant="outline"
         size="sm"

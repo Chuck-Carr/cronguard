@@ -1,6 +1,6 @@
 // Database types
 
-export type Plan = 'FREE' | 'STARTER' | 'PRO' | 'BUSINESS'
+export type Plan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE'
 export type MonitorStatus = 'HEALTHY' | 'LATE' | 'FAILED'
 export type AlertType = 'DOWN' | 'RECOVERY'
 export type AlertChannel = 'EMAIL' | 'SLACK' | 'DISCORD' | 'TEAMS' | 'SMS'
@@ -28,10 +28,15 @@ export interface Monitor {
   status: MonitorStatus
   lastPingAt: Date | null
   nextExpectedPingAt: Date | null
+  paused: boolean
+  pausedAt: Date | null
+  tags: string[]
   slackWebhookUrl: string | null
   discordWebhookUrl: string | null
   teamsWebhookUrl: string | null
   alertEmails: string | null
+  customDownMessage: string | null
+  customRecoveryMessage: string | null
   createdAt: Date
   updatedAt: Date
 }

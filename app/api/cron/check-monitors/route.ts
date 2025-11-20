@@ -18,13 +18,14 @@ export async function GET(req: NextRequest) {
 
     const now = new Date()
 
-    // Find monitors that should have pinged by now but haven't
+    // Find monitors that should have pinged by now but haven't (excluding paused monitors)
     const lateMonitors = await sql<(Monitor & { user: User })[]>`
       SELECT m.*, row_to_json(u.*) as user
       FROM "Monitor" m
       JOIN "User" u ON u.id = m."userId"
       WHERE m.status IN ('HEALTHY', 'LATE')
         AND m."nextExpectedPingAt" <= ${now}
+        AND m.paused = false
     `
 
     const results = {
@@ -83,44 +84,45 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Check for recovered monitors (recently pinged after being down)
-    const recoveredMonitors = await sql<(Monitor & { user: User, recentDownAlertAt: Date | null })[]>`
+    // Check for monitors that need recovery alerts
+    // Find monitors that are currently HEALTHY but have a DOWN alert without a corresponding RECOVERY alert (excluding paused)
+    const recoveredMonitors = await sql<(Monitor & { user: User, lastDownAlertAt: Date | null })[]>`
       SELECT m.*, 
              row_to_json(u.*) as user,
              (SELECT a."sentAt" 
               FROM "Alert" a 
               WHERE a."monitorId" = m.id 
                 AND a.type = 'DOWN' 
-                AND a."sentAt" >= ${new Date(now.getTime() - 24 * 60 * 60 * 1000)}
               ORDER BY a."sentAt" DESC 
-              LIMIT 1) as "recentDownAlertAt"
+              LIMIT 1) as "lastDownAlertAt"
       FROM "Monitor" m
       JOIN "User" u ON u.id = m."userId"
       WHERE m.status = 'HEALTHY'
-        AND m."updatedAt" >= ${new Date(now.getTime() - 60 * 1000)}
+        AND m.paused = false
+        AND EXISTS (
+          SELECT 1 FROM "Alert" a
+          WHERE a."monitorId" = m.id
+            AND a.type = 'DOWN'
+            AND NOT EXISTS (
+              SELECT 1 FROM "Alert" a2
+              WHERE a2."monitorId" = m.id
+                AND a2.type = 'RECOVERY'
+                AND a2."sentAt" >= a."sentAt"
+            )
+        )
     `
 
     for (const monitor of recoveredMonitors) {
-      // If there was a recent DOWN alert and no RECOVERY alert yet, send recovery
-      if (monitor.recentDownAlertAt) {
-        const [hasRecentRecovery] = await sql<Alert[]>`
-          SELECT * FROM "Alert"
-          WHERE "monitorId" = ${monitor.id}
-            AND type = 'RECOVERY'
-            AND "sentAt" >= ${monitor.recentDownAlertAt}
-          LIMIT 1
-        `
-
-        if (!hasRecentRecovery) {
-          const sent = await sendAllAlerts(monitor, "RECOVERY")
-          const alertPromises = []
-          if (sent.email) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'EMAIL', NOW(), NOW())`)
-          if (sent.slack) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'SLACK', NOW(), NOW())`)
-          if (sent.discord) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'DISCORD', NOW(), NOW())`)
-          if (sent.teams) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'TEAMS', NOW(), NOW())`)
-          await Promise.all(alertPromises)
-          results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord) + Number(sent.teams)
-        }
+      // Send recovery alert for each monitor that was down but is now healthy
+      if (monitor.lastDownAlertAt) {
+        const sent = await sendAllAlerts(monitor, "RECOVERY")
+        const alertPromises = []
+        if (sent.email) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'EMAIL', NOW(), NOW())`)
+        if (sent.slack) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'SLACK', NOW(), NOW())`)
+        if (sent.discord) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'DISCORD', NOW(), NOW())`)
+        if (sent.teams) alertPromises.push(sql`INSERT INTO "Alert" (id, "monitorId", type, channel, "sentAt", "createdAt") VALUES (${randomUUID()}, ${monitor.id}, 'RECOVERY', 'TEAMS', NOW(), NOW())`)
+        await Promise.all(alertPromises)
+        results.alertsSent += Number(sent.email) + Number(sent.slack) + Number(sent.discord) + Number(sent.teams)
       }
     }
 
@@ -155,25 +157,17 @@ async function sendAllAlerts(monitor: any & { user: { email: string, plan: any }
   let discordSent = false
   let teamsSent = false
 
-  // Email is available on all plans
-  // Send to account email
-  try {
-    await sendEmailAlert({ email: monitor.user.email }, m, type as any)
-    emailSent = true
-  } catch (e) {
-    console.error('Email alert failed for account email:', e)
-  }
-
-  // Send to additional emails if configured
+  // Email alerts - only send to addresses configured in alertEmails
   if (monitor.alertEmails) {
-    const additionalEmails = monitor.alertEmails
+    const emailAddresses = monitor.alertEmails
       .split(',')
       .map((email: string) => email.trim())
       .filter((email: string) => email.length > 0)
     
-    for (const email of additionalEmails) {
+    for (const email of emailAddresses) {
       try {
         await sendEmailAlert({ email }, m, type as any)
+        emailSent = true
       } catch (e) {
         console.error(`Email alert failed for ${email}:`, e)
       }

@@ -1,4 +1,4 @@
-import { Plan } from "@prisma/client"
+import { Plan } from "@/lib/types"
 
 declare module "next-auth" {
   interface User {

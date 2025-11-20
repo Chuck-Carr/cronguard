@@ -2,9 +2,9 @@ import { Plan } from './types'
 
 export const PLAN_LIMITS = {
   FREE: {
-    monitors: 3,
+    monitors: 5,
     history_days: 7,
-    instant_alerts: false,
+    instant_alerts: true,
     webhooks: false,
     sms_alerts: false,
   },
@@ -22,7 +22,7 @@ export const PLAN_LIMITS = {
     webhooks: true,
     sms_alerts: true,
   },
-  BUSINESS: {
+  ENTERPRISE: {
     monitors: -1, // unlimited
     history_days: 365,
     instant_alerts: true,
